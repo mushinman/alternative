@@ -1,0 +1,338 @@
+(ns social.mushin.alternative.files
+  (:require [clojure.java.io :as io]
+            [lambdaisland.uri :refer [uri?]]
+            [clojure.core :as c])
+  (:import [java.nio.file CopyOption Files Path Paths LinkOption]
+           [java.nio.file.attribute FileAttribute]
+           [java.nio.charset StandardCharsets]
+           [java.io File OutputStream InputStream]
+           [java.net URI]
+           [org.apache.tika.metadata Metadata]
+           [org.apache.tika.detect Detector]
+           [org.apache.tika.config TikaConfig]
+           [org.apache.tika.io TikaInputStream]))
+
+(def charset-utf8 StandardCharsets/UTF_8)
+
+(def tmp-dir (System/getProperty "java.io.tmpdir"))
+
+(def ^:private tika (TikaConfig.))
+
+(defn sanitize-file
+  [file]
+  (if (instance? Path file)
+    (str file)
+    file))
+
+(defn null-output-stream
+  ^OutputStream
+  []
+  (OutputStream/nullOutputStream))
+
+(defn transfer-to
+  ^long
+  [^InputStream input-stream ^OutputStream output-stream]
+  (.transferTo input-stream output-stream))
+
+(defn path
+  "Create a path from a base path and list of path parts.
+
+
+  # Arguments
+  - `base`: The base of the path.
+  - `parts`: Additional parts to concatenate onto base."
+  ^Path
+  [^String base & parts]
+  (Paths/get base (into-array String parts)))
+
+(defn coerce-to-file
+  ^File
+  [p]
+  (cond
+    (instance? File p)
+    p
+
+    (string? p)
+    (File. ^String p)
+
+    (instance? Path p)
+    (.toFile ^Path p)
+
+    ;; java.net.URI
+    (clojure.core/uri? p)
+    (let [u ^URI p]
+      (if (= (.getScheme u) "file")
+        (File. u)
+        (throw (ex-info "only file:// is supported" {:uri u}))))
+
+    ;; Lambdaisland uri.
+    (uri? p)
+    (if (= (p :scheme) "file")
+      (File. (URI. (str p)))
+      (throw (ex-info "only file:// is supported" {:uri p})))
+
+    :else nil))
+
+(defn coerce-to-file!
+  ^File
+  [p]
+  (or (coerce-to-file p)
+      (throw (ex-info "unsupported path type" {:obj p
+                                               :type (class p)}))))
+
+(defn coerce-to-path
+  ^Path
+  [p]
+  (cond
+    (instance? Path p)
+    p
+
+    (string? p)
+    (path p)
+
+    (instance? File p)
+    (.toPath ^File p)
+
+    ;; java.net.URI
+    (clojure.core/uri? p)
+    (let [u ^URI p]
+      (if (= (.getScheme u) "file")
+        (Path/of u)
+        (throw (ex-info "only file:// is supported" {:uri u}))))
+
+
+    ;; Lambdaisland uri.
+    (uri? p)
+    (if (= (p :scheme) "file")
+      (Path/of (URI. (str p)))
+      (throw (ex-info "only file:// is supported" {:uri p})))
+
+    :else nil))
+
+
+(defn coerce-to-path!
+  ^Path
+  [p]
+  (or (coerce-to-path p)
+      (throw (ex-info "unsupported path type" {:obj p
+                                               :type (class p)}))))
+
+(defn sanitize-path
+  [p]
+  (path (str p)))
+
+(defn to-real-path
+  [^Path p & options]
+  (.toRealPath p (into-array LinkOption options)))
+
+(defn normalize
+  [^Path p]
+  (.normalize p))
+
+(defn move
+  "Move a file from path `src` to `dst`.
+
+  # Arguments
+  - `src`: A path to the source file.
+  - `dst`: A path to the file's destination.
+  - `copy-options`: An optional list of copy options.
+
+  `copy-options` can include any of the following options:
+
+
+  | Option                                              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+  |-----------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+  | `java.nio.file.StandardCopyOption.REPLACE_EXISTING` | If the target file exists, then the target file is replaced if it is not a non-empty directory. If the target file exists and is a symbolic link, then the symbolic link itself, not the target of the link, is replaced.                                                                                                                                                                                                                                                                                                                                             |
+  | `java.nio.file.StandardCopyOption.ATOMIC_MOVE`      | The move is performed as an atomic file system operation and all other options are ignored. If the target file exists then it is implementation specific if the existing file is replaced or this method fails by throwing an IOException. If the move cannot be performed as an atomic file system operation then AtomicMoveNotSupportedException is thrown. This can arise, for example, when the target location is on a different FileStore and would require that the file be copied, or target location is associated with a different provider to this object. |
+
+
+  # Return
+  The path to the target file."
+  ^Path
+  [^Path src ^Path dst & copy-options]
+  (Files/move src dst (into-array CopyOption copy-options)))
+
+(defn copy
+  "Copy a file path at `src` to `dst`.
+
+  # Arguments
+  - `src`: A path to the source file.
+  - `dst`: A path to the file's destination.
+  - `copy-options`: An optional list of copy options.
+
+  `copy-options` can include any of the following options:
+
+  | Option                                              | Description |
+  |-----------------------------------------------------|-------------|
+  | `java.nio.file.StandardCopyOption.REPLACE_EXISTING` | If the target file exists, then the target file is replaced if it is not a non-empty directory. If the target file exists and is a symbolic link, then the symbolic link itself, not the target of the link, is replaced.
+  | `java.nio.file.StandardCopyOption.COPY_ATTRIBUTES`  | Attempts to copy the file attributes associated with this file to the target file. The exact file attributes that are copied is platform and file system dependent and therefore unspecified. Minimally, the last-modified-time is copied to the target file if supported by both the source and target file stores. Copying of file timestamps may result in precision loss.   |
+  | `java.nio.file.StandardCopyOption.NOFOLLOW_LINKS`   | Symbolic links are not followed. If the file is a symbolic link, then the symbolic link itself, not the target of the link, is copied. It is implementation specific if file attributes can be copied to the new link. In other words, the COPY_ATTRIBUTES option may be ignored when copying a symbolic link.  |
+  # Return
+  The path to the target file.
+  "
+  ^Path
+  [^Path src ^Path dst & copy-options]
+  (Files/copy src dst (into-array CopyOption copy-options)))
+
+(defn get-path
+  "Get the path name of the file.
+
+  # Arguments
+  `file`: The file to get the file path to.
+
+  # Return
+  The path to the provided file."
+  ^String
+  [^File file]
+  (.getPath file))
+
+(defn detect-content-type
+  "Guess the mime type of a file based off its contents. `file` can be
+  any java file reference object like a string or path. If `file` is a stream
+  it will be consumed."
+  [file]
+  (str (with-open [stream
+                   (if (instance? InputStream file)
+                     (TikaInputStream/get ^InputStream file)
+                     (TikaInputStream/get ^Path (coerce-to-path! file)))]
+         (-> (.getDetector tika)
+             (.detect stream (Metadata.))))))
+
+(defn create-temp-file
+  "Create a temp file.
+
+  # Arguments
+  - `prefix`: A prefix to prepend to the temp file's name.
+  - `suffix`: A suffix to append to the temp file's name.
+  - `attrs`: (Optional) list of file open attributes to open the file with.
+
+  This function can be called with no arguments, in which case we let the JVM
+  decide the file name and attributes.
+
+  # Return
+  A path to the temp file.
+  "
+  ^Path
+  ([^String prefix ^String extension & file-attributes]
+   (Files/createTempFile prefix extension (into-array FileAttribute file-attributes)))
+  ([]
+   (create-temp-file "" "")))
+
+(defn create-temp-file-in
+  "Create a temp file.
+
+  # Arguments
+  - `dir`:  The directory to place the temp file in.
+  - `prefix`: A prefix to prepend to the temp file's name.
+  - `suffix`: A suffix to append to the temp file's name.
+  - `attrs`: (Optional) list of file open attributes to open the file with.
+
+  # Return
+  A path to the temp file.
+  "
+  ^Path
+  [^Path dir ^String prefix ^String extension & file-attributes]
+  (Files/createTempFile dir prefix extension (into-array FileAttribute file-attributes)))
+
+(defn delete
+  "Deletes a file.
+
+  # Arguments.
+  - `path`: The path to the file to delete.
+
+  # Returns
+  `nil`"
+
+  [^Path path]
+  (Files/delete path))
+
+(defn delete-if-exists
+  "Deletes a file if it exists.
+  # Arguments.
+  - `path`: The path to the file to delete.
+  # Returns
+  `true` if a file was deleted, `false` otherwise."
+  ^Boolean
+  [^Path path]
+  (Files/deleteIfExists path))
+
+(defn path-combine
+  "Concatenate the path with the provided path parts.
+
+  # Arguments
+  - `path`: The base path
+  - `others`: A sequence of path parts.
+
+  # Return value
+  `path` concatenated with `others`."
+  ^Path
+  [^Path path & others]
+  (if (empty? others)
+    path
+    (recur (.resolve path ^String (first others)) (rest others))))
+
+(defn to-absolute-path
+  "Convert a path to absolute path.
+
+  # Arguments
+  - `p` The path to convert to an absolute path.
+
+  # Return
+  The path `p` as an absoute path."
+  ^Path
+  [^Path p]
+  (.toAbsolutePath p))
+
+(defn path->uri
+  "Convert a path to URI.
+  # Arguments
+  - `p` The path to convert to a URI.
+
+  # Return
+  The path `p` as a URI."
+  ^URI
+  [^Path p]
+  (.toUri p))
+
+(defn exists
+  "Tests whether a file exists.
+
+  # Arguments
+  - `path`: The path to test the existance of.
+  - `options`: An optional list of link options to test the file with.
+
+  # Return
+  `true` if the file exists; `false` if the file does not exist or its existance could not be determined."
+  [^Path path & options]
+  (Files/exists path (into-array LinkOption options)))
+
+(defn get-file-name
+  ^String
+  [^Path p]
+  (.getFileName p))
+
+(defn not-exists
+  "Tests whether a file does not exist.
+
+  # Arguments
+  - `path`: The path to test the existance of.
+  - `options`: An optional list of link options to test the file with.
+
+  # Return
+  `false` if the file exists; `true` if the file does not exist or its existance could not be determined."
+  [^Path path & options]
+  (Files/notExists path (into-array LinkOption options)))
+
+(defn is-child-of
+  [file dir]
+  (exists (path-combine (coerce-to-path! dir) (get-file-name (coerce-to-path! file)))))
+
+(defn relativize
+  "Get a relative path between two paths."
+  [p1 p2]
+  (.relativize (coerce-to-path! p1) (coerce-to-path! p2)))
+
+(defn path-parts
+  "Get a sequence of path parts in `p`."
+  [p]
+  (iterator-seq (.iterator (coerce-to-path! p))))

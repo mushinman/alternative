@@ -1,0 +1,49 @@
+(ns social.mushin.alternative.core
+  (:require
+   [clojure.tools.logging :as log]
+   [integrant.core :as ig]
+   [social.mushin.alternative.config :as config]
+   [social.mushin.alternative.env :refer [defaults]]
+
+   ;; Edges
+   [kit.edge.cache.redis] 
+   [kit.edge.http.hato] 
+   [kit.edge.scheduling.quartz] 
+   [kit.edge.utils.metrics] 
+   [kit.edge.server.undertow]
+   [social.mushin.alternative.web.handler]
+   [social.mushin.alternative.xtdb]
+
+   ;; Including anything that integrant loads (it can't do it on its own).
+   [social.mushin.alternative.resources]
+   [social.mushin.alternative.web.sign]
+   [social.mushin.alternative.db.tasks]
+   [social.mushin.alternative.web.config]
+
+   ;; Routes
+   [social.mushin.alternative.web.routes.api])
+  (:gen-class))
+
+;; log uncaught exceptions in threads
+(Thread/setDefaultUncaughtExceptionHandler
+ (fn [thread ex]
+   (log/error {:what :uncaught-exception
+               :exception ex
+               :where (str "Uncaught exception on" (.getName thread))})))
+
+(defonce system (atom nil))
+
+(defn stop-app []
+  ((or (:stop defaults) (fn [])))
+  (some-> (deref system) (ig/halt!)))
+
+(defn start-app [& [params]]
+  ((or (:start params) (:start defaults) (fn [])))
+  (->> (config/system-config (or (:opts params) (:opts defaults) {}))
+       (ig/expand)
+       (ig/init)
+       (reset! system)))
+
+(defn -main [& _]
+  (start-app)
+  (.addShutdownHook (Runtime/getRuntime) (Thread. (fn [] (stop-app) (shutdown-agents)))))
