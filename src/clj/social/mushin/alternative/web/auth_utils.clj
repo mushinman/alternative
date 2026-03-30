@@ -3,7 +3,7 @@
             [ring.util.codec :as ring-codec]
             [clojure.tools.logging :as log]
             [clojure.string :as cstr]
-            [social.mushin.alternative.db.users :as users]))
+            [social.mushin.alternative.db.depot :as depot]))
 
 
 ;; TODO There will eventually be two realms at least: Admin Visible and User Visible
@@ -34,7 +34,7 @@
   A map containing a key `:user-id` with the user's ID on success.
 
   Will throw an HTTP exception if the input format is not correct, or the nickname/password pair failed validation."
-  [xtdb-node auth-arg]
+  [depot auth-arg]
   (when-not auth-arg
     (invalid-auth! {:error "invalid_basic" :message "the provided basic authorization header had no credentials"}))
 
@@ -46,7 +46,7 @@
 
     (when (some nil? creds)
       (invalid-auth! {:error :invalid-basic-auth :message "The provided basic authorization header was not in the standard user:password format"}))
-    (let [id (users/can-login? xtdb-node nickname password-attempt)]
+    (let [id (depot/check-nickname-and-password depot nickname password-attempt)]
       (if (uuid? id)
         id
         (failed-auth! {:error id})))))

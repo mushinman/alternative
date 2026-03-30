@@ -1,12 +1,10 @@
 (ns social.mushin.alternative.db.users
-  (:require [xtdb.api :as xt]
-            [social.mushin.alternative.db.util :as db-util]
+  (:require [malli.experimental.time :as mallt]
+            [java-time.api :as time]
             [clj-uuid :as uuid]
-            [buddy.hashers :as hashers]
+            [social.mushin.alternative.db.types :refer [uri-schema nickname-schema email-schema]]
             [social.mushin.alternative.crypt.password :as crypt]
-            [java-time.api :as jt]
-            [malli.experimental.time :as mallt]
-            [social.mushin.alternative.utils :refer [to-java-uri]]))
+            [social.mushin.alternative.files :refer [coerce-to-uri]]))
 
 (def ^:private user-states-schema
   "Schema for user states.
@@ -44,12 +42,12 @@
    :mushin.db/users
    [:map
     [:xt/id                   :uuid]
-    [:email {:optional true}  [:and ::short-string [:re #".+@.+"]]]
+    [:email {:optional true}  email-schema]
     [:log-counter             :int]
-    [:nickname                :string]
+    [:nickname                nickname-schema]
     [:display-name            :string]
-    [:avatar {:optional true} 'uri?]
-    [:banner {:optional true} 'uri?]
+    [:avatar {:optional true} uri-schema]
+    [:banner {:optional true} uri-schema]
     [:password-hash           :string]
     [:bio                     :string]
     [:state                   user-states-schema]
@@ -58,46 +56,20 @@
     [:joined-at               (mallt/-zoned-date-time-schema)]
     [:last-logged-in-at       (mallt/-zoned-date-time-schema)]]})
 
-(defn can-login?
-  "Check that a given password matches a given nickname.
-
-  # Arguments
-   - `xtdb-node`: Database.
-   - `nickname`: User nickname.
-   - `password`: The password for the `nickname`'s user account.
-
-  # Return value
-  The user's `:user-id` if a login is allowed,
-  or a reason code for login rejection. Could be: `no-account`, `:timeout`,
-  `:dead-account`, or `:wrong-nickname-or-password`"
-  [xtdb-node nickname password]
-  (let [{{:keys [type] :as state} :state :keys [password-hash xt/id]}
-        (first (xt/q xtdb-node (xt/template (-> (from :mushin.db/users [{:nickname ~nickname} state password-hash xt/id])
-                                                (limit 1)))))]
-    (cond
-      (not= type :ok)
-      (case type
-        nil :no-account
-        :timeout :timeout
-        :tombstone :dead-account
-        (throw (ex-info "Invalid state for account" {:invalid-state :user :state state})))
-
-      (and password-hash (:valid (hashers/verify password password-hash)))
-      id
-
-      :else
-      :wrong-nickname-or-password)))
-
-(defn check-nickname-and-password
-  "Check that a given password matches a given nickname.
-  Uses the same username/password verification as `can-login?`.
-
-  # Arguments
-   - `xtdb-node`: Database.
-   - `nickname`: User nickname.
-   - `password`: The password for the `nickname`'s user account.
-
-  # Return value
-  True if the user can login, false if not."
-  [xtdb-node nickname password]
-  (uuid? (can-login? xtdb-node nickname password)))
+(defn create-local-user
+  [nickname password avatar-uri banner-uri bio display-name & email]
+  (let [now (time/zoned-date-time)]
+    (cond-> {:xt/id (uuid/v4)
+             :nickname nickname
+             :display-name display-name
+             :local? true
+             :state {:type :ok}
+             :log-counter 0
+             :avatar (coerce-to-uri avatar-uri)
+             :banner (coerce-to-uri banner-uri)
+             :bio bio
+             :password-hash (crypt/hash-password password)
+             :joined-at now
+             :privacy-level :open
+             :last-logged-in-at now}
+      email (assoc :email email))))

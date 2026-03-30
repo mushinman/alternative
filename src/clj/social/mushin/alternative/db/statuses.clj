@@ -1,5 +1,5 @@
 (ns social.mushin.alternative.db.statuses
-  (:require [social.mushin.alternative.db.timestamps :as ts]))
+  (:require [social.mushin.alternative.db.types :as types]))
 
 
 (def status-types-schema
@@ -35,7 +35,7 @@
     [:character-count           :int]
     [:ap-id                     uri?]
     [:mentions                  [:set :uuid]]
-    ts/created-at
-    ts/updated-at
+    types/created-at
+    types/updated-at
     [:content                   :map]
     [:resources                 [:set :string]]]})

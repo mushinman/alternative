@@ -18,7 +18,7 @@
 ;; uncomment to enable hot loading for deps
 ;;
 
-(defn dev-xtdb-node [] (:db.xtdb/node state/system))
+(defn dev-depot [] (:social.mushin.alternative.db/db state/system))
 
 
 (watch-deps/start! {:aliases [:dev :test]})

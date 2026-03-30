@@ -2,7 +2,7 @@
   (:require [social.mushin.alternative.files :as files]
             [clojure.string :as cstr]
             [social.mushin.alternative.resources.resource-map :as interface]
-            [social.mushin.alternative.db.util :as db-util]
+            [social.mushin.alternative.db.xtdb.util :as db-util]
             [social.mushin.alternative.db.resource-meta :as res-meta]
             [lambdaisland.uri :refer [uri join]]
             [clojure.java.io :as io]

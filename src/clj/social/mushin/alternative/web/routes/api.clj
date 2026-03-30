@@ -6,7 +6,6 @@
    [social.mushin.alternative.web.middleware.formats :as formats]
    [social.mushin.alternative.web.middleware.decode :as decode]
    [integrant.core :as ig]
-   [social.mushin.alternative.web.middleware.auth :as auth]
    [reitit.coercion.malli :as malli]
    [reitit.ring.coercion :as coercion]
    [reitit.ring.middleware.muuntaja :as muuntaja]

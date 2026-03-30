@@ -1,7 +1,7 @@
 (ns social.mushin.alternative.db.resource-meta
-  (:require [social.mushin.alternative.db.timestamps :as ts]
+  (:require [social.mushin.alternative.db.types :as types]
             [social.mushin.alternative.utils :refer [to-java-uri]]
-            [social.mushin.alternative.db.util :as db-util]
+            [social.mushin.alternative.db.xtdb.util :as db-util]
             [java-time.api :as time]
             [xtdb.api :as xt]))
             
@@ -12,7 +12,7 @@
     [:xt/id                   :string]
     [:location                'uri?]
     [:mime-type               :string]
-    ts/created-at]})
+    types/created-at]})
 
 (defn create-resource-meta-doc
   [name location mime-type]

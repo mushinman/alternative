@@ -46,7 +46,7 @@
  {:base-path "/api"
   :env       #ig/ref :system/env
   :metrics   #ig/ref :metrics/prometheus
-  :xtdb-node #ig/ref :db.xtdb/node
+  :xtdb-node #ig/ref :social.mushin.alternative.db/db
   :resource-map #ig/ref :social.mushin.alternative.resources/provider
   :endpoint #ig/ref :social.mushin.alternative.web.config/endpoint
   :mushin/jwks      #ig/ref :social.mushin.alternative.web.sign/jwk}
@@ -72,15 +72,14 @@
  :social.mushin.alternative.resources/provider
  {:local
   {:path "./test_media"
-   :xtdb-node #ig/ref :db.xtdb/node
-   ;; Could be a string, or {:host, :scheme, :port}
+   :depot #ig/ref :social.mushin.alternative.db/db
    :endpoint "http://media.localhost/res/"}} ; HERE: Change this.
 
- ;; Database cleanup tasks.
+ ;; Database regular tasks.
  :social.mushin.alternative.db.tasks/tasks
  {:identity  "social.mushin.alternative.db.tasks/tasks"
-  :description "Clean up temporary database state"
-  :xtdb-node #ig/ref :db.xtdb/node
+  :description "Perform background tasks on the database."
+  :xtdb-node #ig/ref :social.mushin.alternative.db/db
   :recover? true
   :durable? true}
 
@@ -88,14 +87,16 @@
  {:priv "./test_key_priv.pem"
   :pub "./test_key_pub.pem"}
 
- ;; resources/system.edn
- :db.xtdb/node
- {:log
-  ;; persistent transaction-log under data/xtdb/log
-  [:local
-   {:path "data/xtdb/log"}]
 
-  :storage
-  ;; persistent object store under data/xtdb/objects
-  [:local
-   {:path "data/xtdb/objects"}]}}
+ ;; resources/system.edn
+ :social.mushin.alternative.db/db
+ {:db-type :xtdb2
+  :cfg {:log
+        ;; persistent transaction-log under data/xtdb/log
+        [:local
+         {:path "data/xtdb/log"}]
+
+        :storage
+        ;; persistent object store under data/xtdb/objects
+        [:local
+         {:path "data/xtdb/objects"}]}}}
