@@ -2,11 +2,10 @@
   (:require [social.mushin.alternative.files :as files]
             [clojure.string :as cstr]
             [social.mushin.alternative.resources.resource-map :as interface]
-            [social.mushin.alternative.db.xtdb.util :as db-util]
             [social.mushin.alternative.db.resource-meta :as res-meta]
             [lambdaisland.uri :refer [uri join]]
             [clojure.java.io :as io]
-            [xtdb.api :as xt])
+            [social.mushin.alternative.db.depot :as depot])
   (:import [java.nio.file Path]
            [java.io InputStream File]))
 
@@ -34,7 +33,7 @@
 
 
 (defrecord FileSystemResourceMap
-    [^Path base-path resource-map-url-base xtdb-node]
+    [^Path base-path resource-map-url-base db-depot]
   interface/ResourceMap
   (create! [this name resource-data mime-type]
     (let [resource-path (get-resource-file-path base-path name)
@@ -63,17 +62,17 @@
                  name
                  (join resource-map-url-base (cstr/join "/" (get-resource-path-as-vec name)))
                  mime-type)]
-            (db-util/compose-and-execute-txs! xtdb-node (res-meta/insert-resource-tx doc))
+            (db-util/compose-and-execute-txs! db-depot (res-meta/insert-resource-tx doc))
             doc)))))
   (delete! [_ name]
-    (db-util/compose-and-execute-txs! xtdb-node (res-meta/delete-resource-meta-tx name))
+    (db-util/compose-and-execute-txs! db-depot (res-meta/delete-resource-meta-tx name))
     (files/delete-if-exists (get-resource-file-path base-path name)))
   (metadata [_ name]
-    (res-meta/get-resource-by-id xtdb-node name))
+    (res-meta/get-resource-by-id db-depot name))
   (exists? [this name]
     (nil? (interface/metadata this name)))
   (to-uri [_ name]
-    (when-let [location (:location (res-meta/get-resource-by-id xtdb-node name))]
+    (when-let [location (:location (res-meta/get-resource-by-id db-depot name))]
       (uri location)))
   (open [_ name]
     (io/input-stream (str (get-resource-file-path base-path name)))))

@@ -1,9 +1,8 @@
 (ns social.mushin.alternative.resources.resource-map)
 
-
 (defprotocol ResourceMap
   (create! [this name resource-data mime-type]
-    "")
+    "Create a resource with.")
   (open [this name]
     "Get a stream that references the resource referenced by `name`.")
   (metadata [this name]

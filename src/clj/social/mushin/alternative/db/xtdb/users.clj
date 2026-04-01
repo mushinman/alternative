@@ -76,7 +76,7 @@
   [:delete-docs :mushin.db/users user-id])
 
 (defn insert-user-tx
-  "Creating an insertion transaction for `user`.
+  "Create an insertion transaction for `user`.
 
   This transaction will result in an exception if a user with the same nickname
   already exists."

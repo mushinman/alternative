@@ -128,17 +128,15 @@
 
 (defn record-exists?
   [node table id]
-   (->
-    (xt/q
-     node
-     [(xt/template
-       (fn [id]
-         (-> (from ~table [{:xt/id id}])
-             (limit 1)
-             (return {:result true}))))
-      id])
-    not-empty
-    boolean))
+  (->
+   (xt/q node [(xt/template
+                (fn [id]
+                  (-> (from ~table [{:xt/id id}])
+                      (limit 1)
+                      (return {:result true}))))
+               id])
+   not-empty
+   boolean))
 
 (defn delete-where
   "Create a transaction part for a deleting documents based off a XTQL query.

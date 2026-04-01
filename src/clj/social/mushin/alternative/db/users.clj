@@ -2,9 +2,22 @@
   (:require [malli.experimental.time :as mallt]
             [java-time.api :as time]
             [clj-uuid :as uuid]
-            [social.mushin.alternative.db.types :refer [uri-schema nickname-schema email-schema]]
+            [social.mushin.alternative.utils :refer [grapheme-count]]
+            [social.mushin.alternative.validators :refer [is-email-user-valid?]]
+            [social.mushin.alternative.db.types :refer [uri-schema email-schema]]
             [social.mushin.alternative.crypt.password :as crypt]
             [social.mushin.alternative.files :refer [coerce-to-uri]]))
+
+(defn- is-valid-nickname?
+  "Return true if `v` is a valid nickname, otherwise false."
+  [v]
+  (and (string? v)
+       (<= 1 (grapheme-count v) 32)
+       (is-email-user-valid? v)))
+
+(def nickname-schema
+  "Malli schmea for nicknames."
+  [:fn {:error/message "Must be valid email username, not empty, and under 32 characters"} is-valid-nickname?])
 
 (def ^:private user-states-schema
   "Schema for user states.

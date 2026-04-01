@@ -47,7 +47,13 @@ and commit `session` to session state.")
   (-check-nickname-and-password [d nickname password opts] "Check a user's `nickname` and `password` for validity.
 Returns true if the `password` is correct for `nickname`, otherwise false.")
   (-delete-user [d user-id opts] "Delete the user with id `user-id`.")
-  (-insert-user [d user opts] "Insert `user`. Fails if a user with the same nickname already exists."))
+  (-insert-user [d user opts] "Insert `user`. Fails if a user with the same nickname already exists.")
+
+
+  ;; Resource meta.
+  (-insert-resource-metadata [d resource-metadata] "Insert `resource-metadata`")
+  (-get-resource-metadata-by-id [d id] "")
+  (-delete-resource-metadata [d id] ""))
 
 (defn db-time 
   "Returns the current time on the database.
