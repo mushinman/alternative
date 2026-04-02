@@ -1,7 +1,7 @@
 (ns social.mushin.alternative.resources
   (:require [integrant.core :as ig]
             [clojure.tools.logging :as log]
-            [social.mushin.alternative.resources.file-resource-map :as fsm]
+            [social.mushin.alternative.resources.file-system-bucket :as file-bucket]
             [social.mushin.alternative.files :as files]
             [lambdaisland.uri :refer [uri]]
             [kit.ig-utils :as ig-utils]))
@@ -10,9 +10,9 @@
   (log/info "Initializing the resource store provider...")
   (cond
     (contains? location :local)
-    (let [{:keys [path endpoint xtdb-node] :as config} (:local location)]
+    (let [{:keys [path bucket] :as config} (:local location)]
       (log/info "Creating filesystem resource provider with config:" config)
-      (fsm/->FileSystemResourceMap (files/path path) (uri endpoint) xtdb-node))
+      (file-bucket/->FileSystemBucket (files/path path) (uri bucket)))
 
     :else (throw (ex-info "Unrecognized resource store provider settings" {:settings location}))))
 

@@ -42,8 +42,8 @@
   - `base`: The base of the path.
   - `parts`: Additional parts to concatenate onto base."
   ^Path
-  [^String base & parts]
-  (Paths/get base (into-array String parts)))
+  [base & parts]
+  (Paths/get (str base) (into-array String parts)))
 
 (defn coerce-to-file
   ^File
@@ -151,12 +151,12 @@
   (path (str p)))
 
 (defn to-real-path
-  [^Path p & options]
-  (.toRealPath p (into-array LinkOption options)))
+  [p & options]
+  (.toRealPath (coerce-to-path! p) (into-array LinkOption options)))
 
 (defn normalize
-  [^Path p]
-  (.normalize p))
+  [p]
+  (.normalize (coerce-to-path! p)))
 
 (defn move
   "Move a file from path `src` to `dst`.
@@ -178,8 +178,8 @@
   # Return
   The path to the target file."
   ^Path
-  [^Path src ^Path dst & copy-options]
-  (Files/move src dst (into-array CopyOption copy-options)))
+  [src dst & copy-options]
+  (Files/move (coerce-to-path src) (coerce-to-path dst) (into-array CopyOption copy-options)))
 
 (defn copy
   "Copy a file path at `src` to `dst`.
@@ -200,8 +200,8 @@
   The path to the target file.
   "
   ^Path
-  [^Path src ^Path dst & copy-options]
-  (Files/copy src dst (into-array CopyOption copy-options)))
+  [src dst & copy-options]
+  (Files/copy (coerce-to-path! src) (coerce-to-path! dst) (into-array CopyOption copy-options)))
 
 (defn get-path
   "Get the path name of the file.
@@ -212,8 +212,8 @@
   # Return
   The path to the provided file."
   ^String
-  [^File file]
-  (.getPath file))
+  [file]
+  (.getPath (coerce-to-file! file)))
 
 (defn detect-content-type
   "Guess the mime type of a file based off its contents. `file` can be
@@ -260,8 +260,8 @@
   A path to the temp file.
   "
   ^Path
-  [^Path dir ^String prefix ^String extension & file-attributes]
-  (Files/createTempFile dir prefix extension (into-array FileAttribute file-attributes)))
+  [dir ^String prefix ^String extension & file-attributes]
+  (Files/createTempFile (coerce-to-path! dir) prefix extension (into-array FileAttribute file-attributes)))
 
 (defn delete
   "Deletes a file.
@@ -271,9 +271,8 @@
 
   # Returns
   `nil`"
-
-  [^Path path]
-  (Files/delete path))
+  [path]
+  (Files/delete (coerce-to-path! path)))
 
 (defn delete-if-exists
   "Deletes a file if it exists.
@@ -282,8 +281,8 @@
   # Returns
   `true` if a file was deleted, `false` otherwise."
   ^Boolean
-  [^Path path]
-  (Files/deleteIfExists path))
+  [path]
+  (Files/deleteIfExists (coerce-to-path! path)))
 
 (defn path-combine
   "Concatenate the path with the provided path parts.
@@ -295,10 +294,10 @@
   # Return value
   `path` concatenated with `others`."
   ^Path
-  [^Path path & others]
+  [path & others]
   (if (empty? others)
-    path
-    (recur (.resolve path ^String (first others)) (rest others))))
+    (coerce-to-path! path)
+    (recur (.resolve (coerce-to-path! path) ^String (str (first others))) (rest others))))
 
 (defn to-absolute-path
   "Convert a path to absolute path.
@@ -309,8 +308,8 @@
   # Return
   The path `p` as an absoute path."
   ^Path
-  [^Path p]
-  (.toAbsolutePath p))
+  [p]
+  (.toAbsolutePath (coerce-to-path! p)))
 
 (defn path->uri
   "Convert a path to URI.
@@ -320,10 +319,10 @@
   # Return
   The path `p` as a URI."
   ^URI
-  [^Path p]
-  (.toUri p))
+  [p]
+  (.toUri (coerce-to-path! p)))
 
-(defn exists
+(defn exists?
   "Tests whether a file exists.
 
   # Arguments
@@ -332,13 +331,13 @@
 
   # Return
   `true` if the file exists; `false` if the file does not exist or its existance could not be determined."
-  [^Path path & options]
-  (Files/exists path (into-array LinkOption options)))
+  [path & options]
+  (Files/exists (coerce-to-path! path) (into-array LinkOption options)))
 
 (defn get-file-name
   ^String
-  [^Path p]
-  (.getFileName p))
+  [p]
+  (.getFileName (coerce-to-path! p)))
 
 (defn not-exists
   "Tests whether a file does not exist.
@@ -349,12 +348,12 @@
 
   # Return
   `false` if the file exists; `true` if the file does not exist or its existance could not be determined."
-  [^Path path & options]
-  (Files/notExists path (into-array LinkOption options)))
+  [path & options]
+  (Files/notExists (coerce-to-path! path) (into-array LinkOption options)))
 
 (defn is-child-of
   [file dir]
-  (exists (path-combine (coerce-to-path! dir) (get-file-name (coerce-to-path! file)))))
+  (exists? (path-combine (coerce-to-path! dir) (get-file-name file))))
 
 (defn relativize
   "Get a relative path between two paths."

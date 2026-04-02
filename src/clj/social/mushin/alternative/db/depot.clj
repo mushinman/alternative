@@ -51,9 +51,14 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
 
 
   ;; Resource meta.
-  (-insert-resource-metadata [d resource-metadata] "Insert `resource-metadata`")
-  (-get-resource-metadata-by-id [d id] "")
-  (-delete-resource-metadata [d id] ""))
+  (-insert-resource [d name resource-data mime-type opts]
+    "Create a reasource with a `name` and `mime-type` from `resource-data`.")
+  (-get-resource-metadata-by-id [d id opts]
+    "Get a resource's metadat by its `id`.")
+  (-delete-resource [d id opts]
+    "Delete a resource with `id`.")
+
+  (-close [d] "Shutdown, clean up any resources held by the depot."))
 
 (defn db-time 
   "Returns the current time on the database.
@@ -101,8 +106,40 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   ([d session-id] (delete-session d session-id {})))
 
 (defn insert-user
-  "nsert `user`. Fails if a user with the same nickname already exists.
+  "Insert `user`. Fails if a user with the same nickname already exists.
 
   See `Depot` for further explanation."
   ([d user opts] (-insert-user d user opts))
   ([d user] (insert-user d user {})))
+
+(defn delete-user
+  "Delete the user with id `user-id`.
+  
+  See `Depot` for further explanation."
+  ([d user-id opts] (-delete-user d user-id opts))
+  ([d user-id] (delete-user d user-id {})))
+
+(defn insert-resource
+  "Create a reasource with a `name` and `mime-type` from `resource-data`.
+ 
+  See `Depot` for further explanation."
+  ([d name resource-data mime-type opts] (-insert-resource d name resource-data mime-type opts))
+  ([d name resource-data mime-type] (insert-resource d name resource-data mime-type {})))
+
+(defn delete-resource
+  "Delete a resource with `id`.
+  
+  See `Depot` for further explanation."
+  ([d id opts] (-delete-resource d id opts))
+  ([d id] (delete-resource d id {})))
+
+(defn get-resource-metadata-by-id
+  "Get a resource's metadat by its `id`.
+    
+  See `Depot` for further explanation."
+  ([d id opts] (-get-resource-metadata-by-id d id opts))
+  ([d id] (get-resource-metadata-by-id d id {})))
+
+(defn close
+ "Shutdown, clean up any resources held by the depot."
+  [d] (-close d))

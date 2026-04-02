@@ -12,7 +12,7 @@
    [kit.edge.utils.metrics] 
    [kit.edge.server.undertow]
    [social.mushin.alternative.web.handler]
-   [social.mushin.alternative.db]
+   [social.mushin.alternative.depot]
 
    ;; Including anything that integrant loads (it can't do it on its own).
    [social.mushin.alternative.resources]

@@ -46,12 +46,12 @@
  {:base-path "/api"
   :env       #ig/ref :system/env
   :metrics   #ig/ref :metrics/prometheus
-  :xtdb-node #ig/ref :social.mushin.alternative.db/db
-  :resource-map #ig/ref :social.mushin.alternative.resources/provider
-  :endpoint #ig/ref :social.mushin.alternative.web.config/endpoint
+  :depot #ig/ref :social.mushin.alternative.depot/depot
+  :bucket #ig/ref :social.mushin.alternative.resources/bucket
+  :http-config #ig/ref :social.mushin.alternative.web.config/http-config
   :mushin/jwks      #ig/ref :social.mushin.alternative.web.sign/jwk}
 
- :social.mushin.alternative.web.config/endpoint
+ :social.mushin.alternative.web.config/http-config
  {:host "localhost"
   :scheme "http"}
 
@@ -69,17 +69,17 @@
                                  :trigger #cronut/cron "0 0 1 * * ?"}]}
   :disallowConcurrentExecution? true}
 
- :social.mushin.alternative.resources/provider
+ :social.mushin.alternative.resources/bucket
  {:local
-  {:path "./test_media"
-   :depot #ig/ref :social.mushin.alternative.db/db
-   :endpoint "http://media.localhost/res/"}} ; HERE: Change this.
+  {:path "./test_media" ; HERE: change this.
+   :endpoint "http://media.localhost/res/" ; HERE: Change this.
+   :depot #ig/ref :social.mushin.alternative.depot/depot}}
 
  ;; Database regular tasks.
  :social.mushin.alternative.db.tasks/tasks
  {:identity  "social.mushin.alternative.db.tasks/tasks"
   :description "Perform background tasks on the database."
-  :xtdb-node #ig/ref :social.mushin.alternative.db/db
+  :depot #ig/ref :social.mushin.alternative.depot/depot
   :recover? true
   :durable? true}
 
@@ -89,7 +89,7 @@
 
 
  ;; resources/system.edn
- :social.mushin.alternative.db/db
+ :social.mushin.alternative.depot/depot
  {:db-type :xtdb2
   :cfg {:log
         ;; persistent transaction-log under data/xtdb/log

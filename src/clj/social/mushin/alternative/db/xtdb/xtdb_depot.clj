@@ -1,16 +1,20 @@
 (ns social.mushin.alternative.db.xtdb.xtdb-depot
   (:require [social.mushin.alternative.db.depot :refer [Depot]]
             [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx] :as db-util]
+            [social.mushin.alternative.resources.bucket :as bucket]
             [xtdb.node :as xt-node]
             [social.mushin.alternative.utils :refer [icase-comp]]
             [social.mushin.alternative.db.xtdb.remember-me :as rm]
+            [social.mushin.alternative.db.resource-meta :as res-meta]
+            [social.mushin.alternative.db.xtdb.resource-meta :as xt-res-meta]
             [social.mushin.alternative.db.xtdb.users :as users])
   (:import [xtdb.error Conflict Anomaly Busy Conflict Fault Forbidden Incorrect
             Interrupted NotFound Unavailable Unsupported]
            [xtdb.api.log IngestionStoppedException]
            [java.sql SQLException SQLTransientConnectionException
             SQLNonTransientConnectionException SQLTimeoutException
-            SQLTransactionRollbackException]))
+            SQLTransactionRollbackException]
+           [java.io Closeable]))
 
 
 (defn- transact
@@ -101,7 +105,7 @@
                        {:type :system}
                        e#)))))
 
-(defrecord ^:private XtdbDepot [db-con]
+(defrecord ^:private XtdbDepot [db-con resource-map]
   Depot
   (-db-time [_ opts]
     (db-util/db-time db-con opts))
@@ -133,7 +137,25 @@
     {:tx (wrap-db-q-or-tx (transact db-con (users/delete-user-tx user-id) opts))})
 
   (-insert-user [_ user opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (users/insert-user-tx user) opts))}))
+    {:tx (wrap-db-q-or-tx (transact db-con (users/insert-user-tx user) opts))})
+
+  ;; TODO if the second step fails, maybe undo the first step?
+  (-insert-resource [_ name resource-data mime-type opts]
+    (let [location-uri (bucket/create! resource-map name resource-data mime-type)
+          doc (res-meta/create-resource-meta-doc name location-uri mime-type)]
+      {:tx (wrap-db-q-or-tx (transact db-con (xt-res-meta/insert-resource-tx doc) opts))
+       :doc doc}))
+
+  (-get-resource-metadata-by-id [_ id opts]
+    (wrap-db-q-or-tx (xt-res-meta/get-resource-by-id db-con id opts)))
+
+  (-delete-resource [_ id opts]
+    {:tx (wrap-db-q-or-tx (transact db-con [(xt-res-meta/delete-resource-meta-tx id)] opts))
+     :deleted-resource? (bucket/delete! resource-map id)})
+
+  (-close [_]
+    (when (instance? Closeable db-con)
+      (.close ^Closeable db-con))))
 
 (defn create-xtdb-depot
   "Create a depot on top of xtdbv2.
