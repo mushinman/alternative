@@ -13,6 +13,8 @@
 
            hiccup/hiccup {:mvn/version "2.0.0"}
 
+           ;; Image codec transcoding.
+           io.sf.carte/echosvg-all {:mvn/version "2.3"}
 
            ;; Logging
            ch.qos.logback/logback-classic  {:mvn/version "1.5.16"}
@@ -27,6 +29,7 @@
            metosin/muuntaja-form           {:mvn/version "0.6.8"}
 
            ;; Apache
+           org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
            org.apache.tika/tika-core {:mvn/version "3.2.3"}
            commons-validator/commons-validator {:mvn/version "1.10.1"}
 

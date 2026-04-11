@@ -7,10 +7,11 @@
 
 
 (defmethod ig/init-key :social.mushin.alternative.depot/depot
-  [_ {:keys [db-type cfg]}]
+  [_ {:keys [db-type cfg bucket]}]
+  (log/info "Creating depot with configuration" cfg)
   (case db-type
     :xtdb2
-    (db-xtdb/create-xtdb-depot cfg)
+    (db-xtdb/create-xtdb-depot cfg bucket)
 
     (throw (ex-info "Misconfiguration!: Bad db-type. Accepted values are: xtdbv2" {:db-type db-type}))))
 

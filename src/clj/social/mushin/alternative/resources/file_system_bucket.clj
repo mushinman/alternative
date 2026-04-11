@@ -33,7 +33,7 @@
 (defrecord FileSystemBucket
     [base-path resource-map-url-base]
   interface/Bucket
-  (create! [this name resource-data _]
+  (-create! [this name resource-data _]
     (let [resource-path (get-resource-file-path base-path name)
           resource-path-str (str resource-path)]
       (if-let [uri-to-resource (interface/get-uri-to this name)]
@@ -55,13 +55,13 @@
             :else
             (files/copy resource-data resource-path))
           (interface/get-uri-to this name)))))
-  (delete! [_ name]
+  (-delete! [_ name]
     (files/delete-if-exists (get-resource-file-path base-path name)))
-  (exists? [_ name]
+  (-exists? [_ name]
     (files/exists? (get-resource-path-as-vec name)))
-  (get-uri-to [_ name]
+  (-get-uri-to [_ name]
     (let [file-path (get-resource-path-as-vec name)]
       (when (files/exists? file-path)
         (join resource-map-url-base (cstr/join "/" file-path)))))
-  (open [_ name]
+  (-open [_ name]
     (io/input-stream (str (get-resource-file-path base-path name)))))

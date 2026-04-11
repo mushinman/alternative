@@ -6,20 +6,20 @@
             [lambdaisland.uri :refer [uri]]
             [kit.ig-utils :as ig-utils]))
 
-(defmethod ig/init-key :social.mushin.alternative.resources/provider [_ location]
-  (log/info "Initializing the resource store provider...")
+(defmethod ig/init-key :social.mushin.alternative.resources/bucket [_ location]
+  (log/info "Initializing the resource store bucket...")
   (cond
     (contains? location :local)
     (let [{:keys [path bucket] :as config} (:local location)]
-      (log/info "Creating filesystem resource provider with config:" config)
+      (log/info "Creating filesystem resource bucket with config:" config)
       (file-bucket/->FileSystemBucket (files/path path) (uri bucket)))
 
-    :else (throw (ex-info "Unrecognized resource store provider settings" {:settings location}))))
+    :else (throw (ex-info "Unrecognized resource store bucket settings" {:settings location}))))
 
-(defmethod ig/suspend-key! :social.mushin.alternative.resources/provider  [_ _]
-  (log/info "Suspending resource provider"))
+(defmethod ig/suspend-key! :social.mushin.alternative.resources/bucket  [_ _]
+  (log/info "Suspending resource bucket"))
 
-(defmethod ig/resume-key :social.mushin.alternative.resources/provider
+(defmethod ig/resume-key :social.mushin.alternative.resources/bucket
   [key opts old-opts old-impl]
-  (log/info "Resuming suspended resource provider")
+  (log/info "Resuming suspended resource bucket")
   (ig-utils/resume-handler key opts old-opts old-impl))

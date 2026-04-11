@@ -43,15 +43,18 @@ Delete any sessions that conflict with `session`.")
 and commit `session` to session state.")
   (-recall-session [d selector validator opts] "Get the session that matches `selector` and `validator`.")
 
-  ;; User queries.
+  ;; User.
   (-check-nickname-and-password [d nickname password opts] "Check a user's `nickname` and `password` for validity.
 Returns true if the `password` is correct for `nickname`, otherwise false.")
-  (-delete-user [d user-id opts] "Delete the user with id `user-id`.")
   (-insert-user [d user opts] "Insert `user`. Fails if a user with the same nickname already exists.")
+  (-get-user-by-nickname [d nickname opts] "Search for a user by their `nickname`, or `nil` if no such user exists.")
+  (-get-user-by-id [d id opts] "Search for a user by their `id`, or `nil` if no such user exists.")
+  (-deactivate-user [d id opts] "Deactivate a user with `id`. Action is a no-op if such a user does not exist.")
+  (-search-user [d search-term opts] "Search for a user with a string `search-term`.")
 
 
   ;; Resource meta.
-  (-insert-resource [d name resource-data mime-type opts]
+  (-insert-resource [d resource-data mime-type opts]
     "Create a reasource with a `name` and `mime-type` from `resource-data`.")
   (-get-resource-metadata-by-id [d id opts]
     "Get a resource's metadat by its `id`.")
@@ -112,19 +115,33 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   ([d user opts] (-insert-user d user opts))
   ([d user] (insert-user d user {})))
 
-(defn delete-user
+(defn deactivate-user
   "Delete the user with id `user-id`.
   
   See `Depot` for further explanation."
-  ([d user-id opts] (-delete-user d user-id opts))
-  ([d user-id] (delete-user d user-id {})))
+  ([d user-id opts] (-deactivate-user d user-id opts))
+  ([d user-id] (deactivate-user d user-id {})))
+
+(defn get-user-by-nickname
+  "Search for a user by their `nickname`.
+
+  See `Depot` for further explanation."
+  ([d nickname opts] (-get-user-by-nickname d nickname opts))
+  ([d nickname] (get-user-by-nickname d nickname {})))
+
+(defn get-user-by-id
+  "Search for a user by their `nickname`.
+
+  See `Depot` for further explanation."
+  ([d id opts] (-get-user-by-id d id opts))
+  ([d id] (get-user-by-id d id {})))
 
 (defn insert-resource
   "Create a reasource with a `name` and `mime-type` from `resource-data`.
  
   See `Depot` for further explanation."
-  ([d name resource-data mime-type opts] (-insert-resource d name resource-data mime-type opts))
-  ([d name resource-data mime-type] (insert-resource d name resource-data mime-type {})))
+  ([d resource-data mime-type opts] (-insert-resource d resource-data mime-type opts))
+  ([d resource-data mime-type] (insert-resource d resource-data mime-type {})))
 
 (defn delete-resource
   "Delete a resource with `id`.
@@ -143,3 +160,8 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
 (defn close
  "Shutdown, clean up any resources held by the depot."
   [d] (-close d))
+
+(defn search-user
+  "Search for a user with a string `search-term`."
+  ([d search-term opts] (-search-user d search-term opts))
+  ([d search-term] (search-user d search-term {})))

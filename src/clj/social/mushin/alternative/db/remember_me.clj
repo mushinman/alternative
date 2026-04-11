@@ -14,7 +14,7 @@
     [:selector                :string]
     [:hashed-validator        :string]
     [:created-at              (mallt/-zoned-date-time-schema)]
-    [:valid-for               :time/period]]})
+    [:valid-for               :time/duration]]})
 
 (defn remember-user
   ([user-id valid-for]
@@ -29,4 +29,5 @@
             :user             user-id
             :created-at       (time/zoned-date-time)
             :valid-for        valid-for}}))
-  ([user-id] (remember-user user-id (time/period 30 :days))))
+  ([user-id] (remember-user user-id (time/duration 30 :days))))
+

@@ -10,12 +10,12 @@
 ;; TODO probably have multiple ways to store the tokens, e.g. db, in-memory, some external service etc..
 (defn check-bearer
   ;; TODO finish this
-  [xtdb-node auth-arg]
+  [depot auth-arg]
   (when-not auth-arg
     (invalid-auth! {:error "invalid_basic" :message "the provided bearer authorization header had no credentials"})))
 
 (defn wrap-optional-authenticate-user
-  [{:keys [xtdb-node]} handler]
+  [{:keys [depot]} handler]
   (fn [{{:keys [user-id]} :session :keys [headers] :as req}]
     (handler
      (cond
@@ -30,29 +30,32 @@
                    (cond
                      ;;(utils/icase-comp auth-type "Bearer") (check-bearer auth-arg xtdb-node)
                      (utils/icase-comp auth-type "Basic")
-                     (check-basic-auth! xtdb-node auth-arg)
+                     (check-basic-auth! depot auth-arg)
 
                      :else
                      (bad-request! {:error :invalid-request :message "Malformed authorization header"}))))))))
 
 (defn wrap-authenticate-user
-  [{:keys [xtdb-node]} handler]
-  (fn [{{:keys [user-id]} :session :keys [headers] :as req}]
-    (handler
-     (cond
-       user-id req
+  ([{:keys [depot]} optional handler]
+   (fn [{{:keys [user-id]} :session :keys [headers] :as req}]
+     (handler
+      (cond
+        user-id req
 
-       (nil? (get headers "authorization"))
-       (failed-auth! {:error "missing authorization"
-                      :message "please authenticate using one of our supported schemas"})
+        (nil? (get headers "authorization"))
+        (if optional
+          req
+          (failed-auth! {:error "missing authorization"
+                         :message "please authenticate using one of our supported schemas"}))
 
-       :else
-       (let [[auth-type auth-arg] (cstr/split (get headers "authorization") #"\s+")]
-         (assoc-in req [:session :user-id]
-                   (cond
-                     ;;(utils/icase-comp auth-type "Bearer") (check-bearer auth-arg xtdb-node)
-                     (utils/icase-comp auth-type "Basic")
-                     (check-basic-auth! xtdb-node auth-arg)
+        :else
+        (let [[auth-type auth-arg] (cstr/split (get headers "authorization") #"\s+")]
+          (assoc-in req [:session :user-id]
+                    (cond
+                      ;;(utils/icase-comp auth-type "Bearer") (check-bearer auth-arg xtdb-node)
+                      (utils/icase-comp auth-type "Basic")
+                      (check-basic-auth! depot auth-arg)
 
-                     :else
-                     (bad-request! {:error :invalid-request :message "Malformed authorization header"}))))))))
+                      :else
+                      (bad-request! {:error :invalid-request :message "Malformed authorization header"}))))))))
+  ([ctx handler] (wrap-authenticate-user ctx false handler)))

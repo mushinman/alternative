@@ -19,6 +19,8 @@
   "Malli schmea for nicknames."
   [:fn {:error/message "Must be valid email username, not empty, and under 32 characters"} is-valid-nickname?])
 
+;; TODO we should probably move passweord hash into its own table since we probably want to erase it
+;; when the user updates their profile.
 (def ^:private user-states-schema
   "Schema for user states.
   | Key          | State                     | Meaning                                |
@@ -86,3 +88,14 @@
              :privacy-level :open
              :last-logged-in-at now}
       email (assoc :email email))))
+
+;; TODO set avatar and banner URIs to some default.
+(defn create-user-tombstone
+  [user-id]
+  {:xt/id user-id
+   :display-name ""
+   :state {:type :timeout}
+   :bio ""
+   :password-hash ""
+   :privacy-level :open
+   :last-logged-in-at (time/zoned-date-time)})

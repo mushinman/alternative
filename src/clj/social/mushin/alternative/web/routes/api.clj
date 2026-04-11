@@ -2,9 +2,12 @@
   (:require
    [social.mushin.alternative.web.controllers.health :as health]
    [social.mushin.alternative.web.controllers.auth :as auth-handlers]
+   [social.mushin.alternative.web.controllers.i :as i]
+   [social.mushin.alternative.web.controllers.users :as users]
    [social.mushin.alternative.web.middleware.exception :as exception]
    [social.mushin.alternative.web.middleware.formats :as formats]
    [social.mushin.alternative.web.middleware.decode :as decode]
+   [social.mushin.alternative.web.middleware.auth :as auth] 
    [integrant.core :as ig]
    [reitit.coercion.malli :as malli]
    [reitit.ring.coercion :as coercion]
@@ -58,45 +61,24 @@
      ["/bye-bye"
       {:post {:handler (partial auth-handlers/logout! opts)}}]]
 
-    #_["/i"
+    ["/i"
      {:middleware [(partial auth/wrap-authenticate-user opts)]}
      ["/who-am-i"
-      {:get {:handler (partial self/get-user opts)}}]
+      {:get {:handler (partial i/who-am-i opts)}}]
 
      ;; TODO authorization middleware that checks the arguments and denies based off
      ["/delete-me"
-      {:delete {:handler (partial self/delete-self! opts)
-                :parameters {:body self/delete-me-body-schema}}}]
+      {:delete {:handler (partial i/deactivate-user opts)
+                :parameters {:body i/deactivate-user-body-schema}}}]]
 
-     ["/create-status"
-      {:post {:handler (partial self/create-status! opts)
-              :parameters {:body self/statuses-body-schema}}}]
+    ["/users"
+     {:middleware [(partial auth/wrap-authenticate-user opts true)]}
+     ["/get-user/:id" {:get {:handler (partial users/get-user opts)}
+                       :parameters {:path users/user-id-schema}}]
 
-
-     ["/add-media"
-      {:post {:handler (partial self/add-media! opts)}}]]
- 
-    ;; ["/statuses/timeline/:nickname"
-    ;;  {:get  {:handler (partial statuses/get-timeline opts)
-    ;;          :middleware [(partial auth/wrap-authenticate-user opts)]
-    ;;          :parameters {:query statuses/get-timeline-query}}}]
-                                        ;["/create-picture" {:handler (partial statuses/create-picture-post! opts)
-                                        ;                    :middleware [(partial auth/wrap-authenticate-user opts)]
-                                        ;                    :parameters {:body statuses/create-picture-post-body}}]
-
-    ;; ["/create-status-post" {:handler (partial statuses/create-status-post! opts)
-    ;;                         :middleware [(partial auth/wrap-authenticate-user opts)]
-    ;;                         :parameters {:body statuses/create-status-body}}]
-
-    ;; ["/statuses/s/:id" {:get  {:handler (partial statuses/get-status opts)
-    ;;                            :middleware [(partial auth/wrap-authenticate-user opts)]
-    ;;                            :parameters {:query statuses/get-status-query
-    ;;                                         :path statuses/status-query}}
-    ;;                     :delete {:handler (partial statuses/delete-status! opts)
-    ;;                              :middleware [(partial auth/wrap-authenticate-user opts)]
-    ;;                              :parameters {:query statuses/get-status-query
-    ;;                                           :path statuses/status-query}}}]
-    ]])
+     ["/create-user"
+      {:post {:handler (partial users/create-user opts)
+              :parameters {:body users/create-user-body}}}]]]])
 
 (derive :reitit.routes/api :reitit/routes)
 

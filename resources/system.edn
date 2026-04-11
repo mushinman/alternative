@@ -48,12 +48,11 @@
   :metrics   #ig/ref :metrics/prometheus
   :depot #ig/ref :social.mushin.alternative.depot/depot
   :bucket #ig/ref :social.mushin.alternative.resources/bucket
-  :http-config #ig/ref :social.mushin.alternative.web.config/http-config
+  :endpoint #ig/ref :social.mushin.alternative.web.config/endpoint
   :mushin/jwks      #ig/ref :social.mushin.alternative.web.sign/jwk}
 
- :social.mushin.alternative.web.config/http-config
- {:host "localhost"
-  :scheme "http"}
+ :social.mushin.alternative.web.config/endpoint
+ {:url {:host "localhost"}}
 
  :router/routes
  {:routes #ig/refset :reitit/routes}
@@ -71,9 +70,9 @@
 
  :social.mushin.alternative.resources/bucket
  {:local
-  {:path "./test_media" ; HERE: change this.
-   :endpoint "http://media.localhost/res/" ; HERE: Change this.
-   :depot #ig/ref :social.mushin.alternative.depot/depot}}
+  ;; HERE: Change these two values.
+  {:path "./test_media"
+   :endpoint "http://media.localhost/res/"}}
 
  ;; Database regular tasks.
  :social.mushin.alternative.db.tasks/tasks
@@ -91,6 +90,7 @@
  ;; resources/system.edn
  :social.mushin.alternative.depot/depot
  {:db-type :xtdb2
+  :bucket #ig/ref :social.mushin.alternative.resources/bucket
   :cfg {:log
         ;; persistent transaction-log under data/xtdb/log
         [:local

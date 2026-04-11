@@ -2,6 +2,7 @@
   (:require [social.mushin.alternative.db.depot :refer [Depot]]
             [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx] :as db-util]
             [social.mushin.alternative.resources.bucket :as bucket]
+            [social.mushin.alternative.errors :as err]
             [xtdb.node :as xt-node]
             [social.mushin.alternative.utils :refer [icase-comp]]
             [social.mushin.alternative.db.xtdb.remember-me :as rm]
@@ -24,6 +25,12 @@
     (submit-tx db-con tx db-opts)
     (execute-tx db-con tx db-opts)))
 
+(defn- throw-db-error
+  ([msg ctx cause]
+   (err/wrap-throw msg (assoc ctx :module :db) cause))
+  ([msg ctx]
+   (err/wrap-throw msg (assoc ctx :module :db))))
+
 (defmacro wrap-db-q-or-tx
   "Wrap any database exceptions thrown by `form`, converting them into an internal format."
   [form]
@@ -33,77 +40,75 @@
        (throw (if (icase-comp "Assert failed" (.getMessage e#))
                 ;; Failed assertions are a special type of conflict.
                 (ex-info "Conflict: a database assertion failed"
-                         {:type :conflict
-                          :subtype :assert-failed}
+                         {:code :assert-failed}
                          e#)
                 (ex-info "A conflict occurred on the database"
-                         {:type :conflict}
+                         {:code :conflict}
                          e#))))
      (catch SQLTransactionRollbackException e#
-       (throw (ex-info "A conflict occurred on the database"
-                       {:type :conflict}
-                       e#)))
+       (throw-db-error "A conflict occurred on the database"
+                       {:code :conflict}
+                       e#))
      (catch Incorrect e#
-       (throw (ex-info "Incorrect input"
-                       {:type :incorrect}
-                       e#)))
+       (throw-db-error "Incorrect input"
+                       {:code :incorrect}
+                       e#))
      (catch Unsupported e#
-       (throw (ex-info "Incorrect input"
-                       {:type :incorrect}
-                       e#)))
+       (throw-db-error "Incorrect input"
+                       {:code :incorrect}
+                       e#))
      (catch NotFound e#
-       (throw (ex-info "Incorrect input"
-                       {:type :incorrect}
-                       e#)))
+       (throw-db-error "Incorrect input"
+                       {:code :incorrect}
+                       e#))
      (catch IngestionStoppedException e#
-       (throw (ex-info "Incorrect input"
-                       {:type :incorrect}
-                       e#)))
+       (throw-db-error "Incorrect input"
+                       {:code :incorrect}
+                       e#))
      (catch Forbidden e#
-       (throw (ex-info "Forbidden"
-                       {:type :forbidden}
-                       e#)))
+       (throw-db-error "Forbidden"
+                       {:code :forbidden}
+                       e#))
      (catch Busy e#
-       (throw (ex-info "Database is unavailable"
-                       {:type :unavailable}
-                       e#)))
+       (throw-db-error "Database is unavailable"
+                       {:code :unavailable}
+                       e#))
      (catch Unavailable e#
-       (throw (ex-info "Database is unavailable"
-                       {:type :unavailable}
-                       e#)))
+       (throw-db-error "Database is unavailable"
+                       {:code :unavailable}
+                       e#))
      (catch Interrupted e#
-       (throw (ex-info "Database is unavailable"
-                       {:type :unavailable}
-                       e#)))
+       (throw-db-error "Database is unavailable"
+                       {:code :unavailable}
+                       e#))
      (catch SQLTransientConnectionException e#
-       (throw (ex-info "Database is unavailable"
-                       {:type :unavailable}
-                       e#)))
+       (throw-db-error "Database is unavailable"
+                       {:code :unavailable}
+                       e#))
      (catch SQLNonTransientConnectionException e#
-       (throw (ex-info "Database is unavailable"
-                       {:type :unavailable}
-                       e#)))
+       (throw-db-error "Database is unavailable"
+                       {:code :unavailable}
+                       e#))
      (catch SQLTimeoutException e#
-       (throw (ex-info "Database is unavailable"
-                       {:type :unavailable
-                        :subtype :timeout}
-                       e#)))
+       (throw-db-error "Database is unavailable"
+                       {:code :timeout}
+                       e#))
      (catch Anomaly e#
-       (throw (ex-info "Miscellaneous database error"
-                       {:type :db-misc}
-                       e#)))
+       (throw-db-error "Miscellaneous database error"
+                       {:code :db-misc}
+                       e#))
      (catch Fault e#
-       (throw (ex-info "Miscellaneous database error"
-                       {:type :misc-db}
-                       e#)))
+       (throw-db-error "Miscellaneous database error"
+                       {:code :misc-db}
+                       e#))
      (catch SQLException e#
-       (throw (ex-info "Miscellaneous database error"
-                       {:type :misc-db}
-                       e#)))
+       (throw-db-error "Miscellaneous database error"
+                       {:code :misc-db}
+                       e#))
      (catch Throwable e#
-       (throw (ex-info "System error"
-                       {:type :system}
-                       e#)))))
+       (throw-db-error "System error"
+                       {:code :system}
+                       e#))))
 
 (defrecord ^:private XtdbDepot [db-con resource-map]
   Depot
@@ -133,14 +138,24 @@
   (-check-nickname-and-password [_ nickname password opts]
     (wrap-db-q-or-tx (users/can-login? db-con nickname password opts)))
 
-  (-delete-user [_ user-id opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (users/delete-user-tx user-id) opts))})
+  (-deactivate-user [_ user-id opts]
+    ;; TODO also tombstone all their posts.
+    {:tx (wrap-db-q-or-tx (transact db-con [(users/deactivate-user-tx user-id)] opts))})
+
+  (-search-user [_ search-term opts]
+    (users/search-user db-con search-term opts))
+
+  (-get-user-by-nickname [_ nickname opts]
+    (wrap-db-q-or-tx (users/get-user-by-nickname db-con nickname opts)))
+
+  (-get-user-by-id [_ id opts]
+    (wrap-db-q-or-tx (users/get-user-by-id db-con id opts)))
 
   (-insert-user [_ user opts]
     {:tx (wrap-db-q-or-tx (transact db-con (users/insert-user-tx user) opts))})
 
   ;; TODO if the second step fails, maybe undo the first step?
-  (-insert-resource [_ name resource-data mime-type opts]
+  (-insert-resource [_ resource-data mime-type opts]
     (let [location-uri (bucket/create! resource-map name resource-data mime-type)
           doc (res-meta/create-resource-meta-doc name location-uri mime-type)]
       {:tx (wrap-db-q-or-tx (transact db-con (xt-res-meta/insert-resource-tx doc) opts))
@@ -165,5 +180,5 @@
 
   # Return value
   A new xtdb depot."
-  [cfg]
-  (XtdbDepot. (xt-node/start-node (xt-node/->config cfg))))
+  [cfg bucket]
+  (XtdbDepot. (xt-node/start-node (xt-node/->config cfg)) bucket))

@@ -18,7 +18,7 @@
 ;; uncomment to enable hot loading for deps
 ;;
 
-(defn dev-depot [] (:social.mushin.alternative.depot/db state/system))
+(defn dev-depot [] (:social.mushin.alternative.depot/depot state/system))
 
 
 (watch-deps/start! {:aliases [:dev :test]})

@@ -106,3 +106,14 @@ Return true on successful, false if the resource does not exist.")
           (finally
             (files/delete-if-exists output-file-path)))))))
 
+;; TODO here we assume that GIFs are always animated and JPEGs are always static, but
+;; that is not necessarily true. We need more complex logic to determine if the file is
+;; static or animated.
+
+(defn create!
+  [b resource-data mime-type]
+  (case mime-type
+    ("image/png" "image/jpeg")
+    (create-resource-from-static-image! resource-data mime-type b)
+
+    (throw (ex-info "Resource type is not supported" {:mime-type mime-type}))))

@@ -4,5 +4,4 @@
 
 (defn generate-token
   [n-bytes]
-  (-> (nonce/random-bytes n-bytes)
-      (codecs/bytes->b64u)))
+  (nonce/random-bytes n-bytes))
