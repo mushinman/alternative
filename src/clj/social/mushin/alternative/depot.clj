@@ -1,7 +1,7 @@
 (ns social.mushin.alternative.depot
   (:require [integrant.core :as ig]
             [clojure.tools.logging :as log]
-            [social.mushin.alternative.db.depot :as db-depot]
+            [social.mushin.alternative.application.depot :as db-depot]
             [social.mushin.alternative.db.xtdb.xtdb-depot :as db-xtdb]
             [kit.ig-utils :as ig-utils]))
 

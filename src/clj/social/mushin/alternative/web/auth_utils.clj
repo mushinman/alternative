@@ -1,12 +1,29 @@
 (ns social.mushin.alternative.web.auth-utils
   (:require [ring.util.http-response :refer [unauthorized! bad-request!]]
             [ring.util.codec :as ring-codec]
-            [clojure.tools.logging :as log]
+            [ring.util.response :as resp]
+            [java-time.api :as time]
             [clojure.string :as cstr]
-            [social.mushin.alternative.db.depot :as depot]))
+            [social.mushin.alternative.application.depot :as depot]))
 
 
 ;; TODO There will eventually be two realms at least: Admin Visible and User Visible
+
+(defn remember-me-cookie
+  [response & [selector validator valid-for]]
+  (let [value (if (and selector validator)
+                (str selector ":" validator)
+                "")
+        max-age (if valid-for
+                  (time/as valid-for :seconds)
+                  0)]
+    (resp/set-cookie response "remember-me" value
+                     {:path "/api/session"
+                      ;;:domain "example.com" TODO
+                      :http-only true
+                      :secure true
+                      :same-site :strict
+                      :max-age max-age})))
 
 (defn challenge-headers
   []

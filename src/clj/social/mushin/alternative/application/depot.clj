@@ -1,4 +1,4 @@
-(ns social.mushin.alternative.db.depot)
+(ns social.mushin.alternative.application.depot)
 
 
 (defprotocol Depot

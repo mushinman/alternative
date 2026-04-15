@@ -1,5 +1,5 @@
 (ns social.mushin.alternative.db.xtdb.xtdb-depot
-  (:require [social.mushin.alternative.db.depot :refer [Depot]]
+  (:require [social.mushin.alternative.application.depot :refer [Depot]]
             [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx] :as db-util]
             [social.mushin.alternative.resources.bucket :as bucket]
             [social.mushin.alternative.errors :as err]
@@ -25,12 +25,6 @@
     (submit-tx db-con tx db-opts)
     (execute-tx db-con tx db-opts)))
 
-(defn- throw-db-error
-  ([msg ctx cause]
-   (err/wrap-throw msg (assoc ctx :module :db) cause))
-  ([msg ctx]
-   (err/wrap-throw msg (assoc ctx :module :db))))
-
 (defmacro wrap-db-q-or-tx
   "Wrap any database exceptions thrown by `form`, converting them into an internal format."
   [form]
@@ -39,76 +33,76 @@
      (catch Conflict e#
        (throw (if (icase-comp "Assert failed" (.getMessage e#))
                 ;; Failed assertions are a special type of conflict.
-                (ex-info "Conflict: a database assertion failed"
-                         {:code :assert-failed}
-                         e#)
-                (ex-info "A conflict occurred on the database"
-                         {:code :conflict}
-                         e#))))
+                (err/db-error "Conflict: a database assertion failed"
+                              :assert-failed
+                              e#)
+                (err/db-error "A conflict occurred on the database"
+                              :conflict
+                              e#))))
      (catch SQLTransactionRollbackException e#
-       (throw-db-error "A conflict occurred on the database"
-                       {:code :conflict}
-                       e#))
+       (throw (err/db-error "A conflict occurred on the database"
+                            :conflict
+                            e#)))
      (catch Incorrect e#
-       (throw-db-error "Incorrect input"
-                       {:code :incorrect}
-                       e#))
+       (throw (err/db-error "Incorrect input"
+                            :incorrect
+                            e#)))
      (catch Unsupported e#
-       (throw-db-error "Incorrect input"
-                       {:code :incorrect}
-                       e#))
+       (throw (err/db-error "Incorrect input"
+                            :incorrect
+                            e#)))
      (catch NotFound e#
-       (throw-db-error "Incorrect input"
-                       {:code :incorrect}
-                       e#))
+       (throw (err/db-error "Incorrect input"
+                            :incorrect
+                            e#)))
      (catch IngestionStoppedException e#
-       (throw-db-error "Incorrect input"
-                       {:code :incorrect}
-                       e#))
+       (throw (err/db-error "Incorrect input"
+                            :incorrect
+                            e#)))
      (catch Forbidden e#
-       (throw-db-error "Forbidden"
-                       {:code :forbidden}
-                       e#))
+       (throw (err/db-error "Forbidden"
+                            :forbidden
+                            e#)))
      (catch Busy e#
-       (throw-db-error "Database is unavailable"
-                       {:code :unavailable}
-                       e#))
+       (throw (err/db-error "Database is unavailable"
+                            :unavailable
+                            e#)))
      (catch Unavailable e#
-       (throw-db-error "Database is unavailable"
-                       {:code :unavailable}
-                       e#))
+       (throw (err/db-error "Database is unavailable"
+                            :unavailable
+                            e#)))
      (catch Interrupted e#
-       (throw-db-error "Database is unavailable"
-                       {:code :unavailable}
-                       e#))
+       (throw (err/db-error "Database is unavailable"
+                            :unavailable
+                            e#)))
      (catch SQLTransientConnectionException e#
-       (throw-db-error "Database is unavailable"
-                       {:code :unavailable}
-                       e#))
+       (throw (err/db-error "Database is unavailable"
+                            :unavailable
+                            e#)))
      (catch SQLNonTransientConnectionException e#
-       (throw-db-error "Database is unavailable"
-                       {:code :unavailable}
-                       e#))
+       (throw (err/db-error "Database is unavailable"
+                            :unavailable
+                            e#)))
      (catch SQLTimeoutException e#
-       (throw-db-error "Database is unavailable"
-                       {:code :timeout}
-                       e#))
+       (throw (err/db-error "Database is unavailable"
+                            :timeout
+                            e#)))
      (catch Anomaly e#
-       (throw-db-error "Miscellaneous database error"
-                       {:code :db-misc}
-                       e#))
+       (throw (err/db-error "Miscellaneous database error"
+                            :db-misc
+                            e#)))
      (catch Fault e#
-       (throw-db-error "Miscellaneous database error"
-                       {:code :misc-db}
-                       e#))
+       (throw (err/db-error "Miscellaneous database error"
+                            :misc-db
+                            e#)))
      (catch SQLException e#
-       (throw-db-error "Miscellaneous database error"
-                       {:code :misc-db}
-                       e#))
+       (throw (err/db-error "Miscellaneous database error"
+                            :misc-db
+                            e#)))
      (catch Throwable e#
-       (throw-db-error "System error"
-                       {:code :system}
-                       e#))))
+       (throw (err/db-error "System error"
+                            :system
+                            e#)))))
 
 (defrecord ^:private XtdbDepot [db-con resource-map]
   Depot
@@ -179,6 +173,6 @@
   - `cfg` - A configuration of an xtdbv2 node as a map. See XTDB docs for details.
 
   # Return value
-  A new xtdb depot."
+   A new xtdb depot."
   [cfg bucket]
   (XtdbDepot. (xt-node/start-node (xt-node/->config cfg)) bucket))

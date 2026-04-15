@@ -3,6 +3,9 @@
 
  :deps    {org.clojure/clojure             {:mvn/version "1.12.0"}
 
+           ;; Hosted (Kotlin) library
+           social.mushin.alternative/alternative-hosted {:mvn/version "0.1.0-SNAPSHOT"}
+
            ;; Routing
            metosin/reitit                  {:mvn/version "0.9.1"
                                             :exclusions [metonsin/malli]}
