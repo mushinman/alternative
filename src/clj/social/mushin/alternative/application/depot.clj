@@ -52,6 +52,9 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   (-deactivate-user [d id opts] "Deactivate a user with `id`. Action is a no-op if such a user does not exist.")
   (-search-user [d search-term opts] "Search for a user with a string `search-term`.")
 
+  ;; Statuses.
+  (insert-status [d status opts] "Insert `status`.")
+
 
   ;; Resource meta.
   (-insert-resource [d resource-data mime-type opts]

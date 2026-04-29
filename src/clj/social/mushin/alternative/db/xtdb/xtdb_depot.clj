@@ -6,6 +6,7 @@
             [xtdb.node :as xt-node]
             [social.mushin.alternative.utils :refer [icase-comp]]
             [social.mushin.alternative.db.xtdb.remember-me :as rm]
+            [social.mushin.alternative.db.xtdb.statuses :as statuses]
             [social.mushin.alternative.db.resource-meta :as res-meta]
             [social.mushin.alternative.db.xtdb.resource-meta :as xt-res-meta]
             [social.mushin.alternative.db.xtdb.users :as users])
@@ -147,6 +148,9 @@
 
   (-insert-user [_ user opts]
     {:tx (wrap-db-q-or-tx (transact db-con (users/insert-user-tx user) opts))})
+
+  (insert-status [_ status opts]
+    {:tx (wrap-db-q-or-tx (transact db-con (statuses/insert-status-tx status) opts))})
 
   ;; TODO if the second step fails, maybe undo the first step?
   (-insert-resource [_ resource-data mime-type opts]

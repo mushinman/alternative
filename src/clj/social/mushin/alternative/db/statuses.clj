@@ -1,5 +1,7 @@
 (ns social.mushin.alternative.db.statuses
-  (:require [social.mushin.alternative.db.types :as types]))
+  (:require [social.mushin.alternative.db.types :as types]
+            [clj-uuid :as uuid]
+            [java-time.api :as t]))
 
 
 (def status-types-schema
@@ -27,15 +29,42 @@
   "
   {:mushin.db/statuses
    [:map
+    [:xt/id                     :uuid]
     [:type                      status-types-schema]
     [:primary-encoding          status-encodings-schema]
-    [:xt/id                     :uuid]
     [:creator                   :uuid]
     [:reply-to {:optional true} :uuid]
     [:character-count           :int]
-    [:ap-id                     uri?]
+    ;[:ap-id                     types/uri-schema]
     [:mentions                  [:set :uuid]]
     types/created-at
     types/updated-at
     [:content                   :map]
     [:resources                 [:set :string]]]})
+
+
+(defn create-local-status
+  ([creator-id content resources mentions character-count primary-encoding type reply-to]
+   (let [now (t/zoned-date-time)]
+     (cond-> {:xt/id
+              ;; Allocate a UUID such that it shares the first 32 bits with the creator's id.
+              (let [base (uuid/v4)]
+                (uuid/v4 (bit-or (bit-and
+                                  (uuid/get-word-high creator-id)
+                                  (bit-shift-left 0xFFFFFFFF 32))
+                                 (bit-and
+                                  (uuid/get-word-high base)
+                                  0xFFFFFFFF))
+                         (uuid/get-word-low base)))
+              :creator creator-id
+              :type type
+              :content content
+              :resources resources
+              :mentions mentions
+              :character-count character-count
+              :primary-encoding primary-encoding
+              :created-at now
+              :updated-at now}
+       reply-to (assoc :reply-to reply-to))))
+  ([creator-id content resources mentions character-count primary-encoding type]
+   (create-local-status creator-id content resources mentions character-count primary-encoding type nil)))

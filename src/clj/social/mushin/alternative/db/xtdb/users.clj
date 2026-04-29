@@ -108,6 +108,7 @@
   This transaction will result in an exception if a user with the same nickname
   already exists."
   [{:keys [nickname] :as user}]
+  ;; TODO also assert that the ID doesn't exist.
   [(assert-not-exists-tx
     (xt/template (fn [nickname]
                    (-> (from :mushin.db/users [{:nickname nickname}])
