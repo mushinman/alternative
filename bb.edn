@@ -1,5 +1,6 @@
 {:min-bb-version "0.8.156"
- :deps  {failjure/failjure {:mvn/version "2.3.0"}}
+ :deps  {failjure/failjure      {:mvn/version "2.3.0"}
+          org.babashka/http-client {:mvn/version "0.4.19"}}
  :tasks {:requires ([babashka.fs :as fs]
                     [babashka.tasks :refer [shell]])
 
@@ -19,6 +20,16 @@
 
          uberjar   {:doc  "builds the uberjar"
                     :task (clojure {:dir "."} "-T:build all")}
+
+         create-user {:doc  "Create a user. Args: <nickname> <password>"
+                      :requires ([babashka.http-client :as http]
+                                 [cheshire.core :as json])
+                      :task (let [[nickname password] *command-line-args*
+                                  resp (http/post "http://localhost:3000/api/v1/users/create-user"
+                                                  {:headers {"Content-Type" "application/json"}
+                                                   :body    (json/generate-string {:nickname nickname
+                                                                                   :password password})})]
+                              (println (:body resp)))}
 
          format    {:doc  "Formats codebase"
                     :task (try

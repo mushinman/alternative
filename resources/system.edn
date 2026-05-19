@@ -86,10 +86,13 @@
  {:priv "./test_key_priv.pem"
   :pub "./test_key_pub.pem"}
 
+ :social.mushin.alternative.cache/local-cache
+ {}
 
  ;; resources/system.edn
  :social.mushin.alternative.depot/depot
  {:db-type :xtdb2
+  :cache #ig/ref :social.mushin.alternative.cache/local-cache
   :bucket #ig/ref :social.mushin.alternative.resources/bucket
   :cfg {:log
         ;; persistent transaction-log under data/xtdb/log

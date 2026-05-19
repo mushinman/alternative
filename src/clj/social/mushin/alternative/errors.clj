@@ -18,5 +18,5 @@
 
 (defn ex-code
   [^AlternativeException e]
-  (.-code e))
+  (.getCode e))
 

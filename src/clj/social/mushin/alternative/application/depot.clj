@@ -46,11 +46,16 @@ and commit `session` to session state.")
   ;; User.
   (-check-nickname-and-password [d nickname password opts] "Check a user's `nickname` and `password` for validity.
 Returns true if the `password` is correct for `nickname`, otherwise false.")
-  (-insert-user [d user opts] "Insert `user`. Fails if a user with the same nickname already exists.")
-  (-get-user-by-nickname [d nickname opts] "Search for a user by their `nickname`, or `nil` if no such user exists.")
-  (-get-user-by-id [d id opts] "Search for a user by their `id`, or `nil` if no such user exists.")
+  (insert-local-user [d user actor auth opts] "Insert `user`, `actor`, and `auth`. Fails if a user with the same nickname already exists.")
   (-deactivate-user [d id opts] "Deactivate a user with `id`. Action is a no-op if such a user does not exist.")
   (-search-user [d search-term opts] "Search for a user with a string `search-term`.")
+  (get-by-nickname-or-id [d id-or-nickname rows opts] "Get a user by their `nickname` or `id`, along with its actor information.
+
+`rows` is one of the following:
+- `:display`: Return the user's display data
+- `:actor`: Return the user's actor data, permissions, and any non-authentication rows used for logic
+- `:full`: Return both the user's display and actor data")
+  (user-exists? [d id-or-nickname opts] "Return true if the user with `id-or-nickname` exists, false if not.")
 
   ;; Statuses.
   (insert-status [d status opts] "Insert `status`.")
@@ -62,11 +67,9 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   (-get-resource-metadata-by-id [d id opts]
     "Get a resource's metadat by its `id`.")
   (-delete-resource [d id opts]
-    "Delete a resource with `id`.")
+    "Delete a resource with `id`."))
 
-  (-close [d] "Shutdown, clean up any resources held by the depot."))
-
-(defn db-time 
+(defn db-time
   "Returns the current time on the database.
 
   See `Depot` for further explanation."
@@ -111,13 +114,6 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   ([d session-id opts] (-delete-session d session-id opts))
   ([d session-id] (delete-session d session-id {})))
 
-(defn insert-user
-  "Insert `user`. Fails if a user with the same nickname already exists.
-
-  See `Depot` for further explanation."
-  ([d user opts] (-insert-user d user opts))
-  ([d user] (insert-user d user {})))
-
 (defn deactivate-user
   "Delete the user with id `user-id`.
   
@@ -125,19 +121,6 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   ([d user-id opts] (-deactivate-user d user-id opts))
   ([d user-id] (deactivate-user d user-id {})))
 
-(defn get-user-by-nickname
-  "Search for a user by their `nickname`.
-
-  See `Depot` for further explanation."
-  ([d nickname opts] (-get-user-by-nickname d nickname opts))
-  ([d nickname] (get-user-by-nickname d nickname {})))
-
-(defn get-user-by-id
-  "Search for a user by their `nickname`.
-
-  See `Depot` for further explanation."
-  ([d id opts] (-get-user-by-id d id opts))
-  ([d id] (get-user-by-id d id {})))
 
 (defn insert-resource
   "Create a reasource with a `name` and `mime-type` from `resource-data`.
@@ -160,9 +143,6 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   ([d id opts] (-get-resource-metadata-by-id d id opts))
   ([d id] (get-resource-metadata-by-id d id {})))
 
-(defn close
- "Shutdown, clean up any resources held by the depot."
-  [d] (-close d))
 
 (defn search-user
   "Search for a user with a string `search-term`."

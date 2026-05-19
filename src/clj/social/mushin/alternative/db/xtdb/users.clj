@@ -1,18 +1,9 @@
 (ns social.mushin.alternative.db.xtdb.users
   (:require [xtdb.api :as xt]
             [social.mushin.alternative.db.xtdb.util :refer [assert-not-exists-tx]]
-            [clj-uuid :as uuid]
-            [honey.sql :as sql]
-            [buddy.hashers :as hashers]
+            [social.mushin.alternative.db.authentication :as authn]
             [social.mushin.alternative.db.users :as base-users]
-            [social.mushin.alternative.crypt.password :as crypt]
-            [java-time.api :as jt]
-            [social.mushin.alternative.files :refer [coerce-to-host-uri coerce-to-uri]]
-            [social.mushin.alternative.utils :refer [to-java-uri]]))
-
-(def ^:private safe-user-columns
-  "A list of columns that are safe to return in the API (e.g. not the password)."
-  '[xt/id log-counter nickname display-name avatar banner ap-id bio state privacy-level local? joined-at last-logged-in-at])
+            [social.mushin.alternative.files :refer [coerce-to-host-uri coerce-to-uri]]))
 
 (defn can-login?
   "Check that a given password matches a given nickname.
@@ -28,12 +19,14 @@
    or a reason code for login rejection. Could be: `no-account`,
   `:dead-account`, or `:wrong-nickname-or-password`"
   ([db-con nickname password opts]
-   (let [{{:keys [type] :as state} :state :keys [password-hash xt/id]}
+   (let [{{:keys [type] :as state} :state :keys [auth-entry xt/id]}
          (first
           (xt/q db-con
                 [(xt/template
                   (fn [nickname]
-                    (-> (from :mushin.db/users [{:nickname nickname} state password-hash xt/id])
+                    (-> (from :mushin.db/users [{:nickname nickname} state auth-id xt/id])
+                        (with {:auth-enty (pull (fn [auth-id]
+                                                  (from :mushin.db/authn [* {:xt/id auth-id}])))})
                         (limit 1))))
                  nickname]
                 opts))]
@@ -45,13 +38,25 @@
          :tombstone :dead-account
          (throw (ex-info "Invalid state for account" {:invalid-state :user :state state})))
 
-       (and password-hash (:valid (hashers/verify password password-hash)))
+       (and auth-entry (authn/verify-password auth-entry password))
        id
 
        :else
        :wrong-nickname-or-password)))
   ([db-con nickname password]
    (can-login? db-con nickname password {})))
+
+(defn user-exists?
+  [db-con id-or-nickname opts]
+  (->
+   (xt/q db-con [(xt/template
+                  (fn [id-or-nickname]
+                    (-> (from :mushin.db/users [xt/id {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
+                        (limit 1)))) 
+                 id-or-nickname]
+         opts)
+   first
+   boolean))
 
 (defn user->xtdb-doc
   "Convert any values in `user` to equivalent values that xtdb will accept.
@@ -77,43 +82,97 @@
   [user-id]
   [:patch-docs :mushin.db/users (base-users/create-user-tombstone user-id)])
 
-(defn get-user-by-nickname
-  "Query the database for a user with `nickname`. If none exists, return `nil`.
-
-  This query returns only the safe columns from the user table."
+(defn get-user-id-by-nickname
+  "Query the database for the user's id with `nickname`."
   [db-con nickname opts]
-  (first (xt/q db-con [(xt/template
-                        (fn [nickname]
-                          (-> (from :mushin.db/users [~@safe-user-columns {:nickname nickname}])
-                              (limit 1))))
-                       nickname]
-               opts)))
+  (->
+   (xt/q db-con [(xt/template
+                  (fn [nickname]
+                    (-> (from :mushin.db/users [:xt/id {:nickname nickname}])
+                        (limit 1))))
+                 nickname]
+         opts)
+   first
+   :xt/id))
 
+(defn get-user-display-data
+  [db-con id-or-nickname opts]
+  (first
+   (xt/q db-con [(xt/template
+                  (fn [id-or-nickname]
+                    (-> (from :mushin.db/users [* {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
+                        (limit 1)))) 
+                 id-or-nickname]
+         opts)))
 
-(defn get-user-by-id
-  "Query the database for a user with `id`. If none exists, return `nil`.
+(defn get-user-actor-data
+  "Query the database for a user with `id-or-nickname`. If none exists, return `nil`.
 
-   This query returns only the safe columns from the user table."
-  [db-con id opts]
-  (first (xt/q db-con [(xt/template
-                        (fn [id]
-                          (-> (from :mushin.db/users [~@safe-user-columns {:xt/id id}])
-                              (limit 1))))
-                       id]
-               opts)))
+  Also returns, merged with the user map, and each of the user's roles in the `:roles` key."
+  [db-con id-or-nickname opts]
+  (first
+   (xt/q db-con [(xt/template
+                  (fn [id-or-nickname]
+                    (-> (unify (from :mushin.db/users [actor-id {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
+                               (from :mushin.db/actor [* {:xt/id actor-id}]))
+                        (with {:roles
+                               (pull* (fn [actor-id]
+                                        (-> (unify
+                                             (from :mushin.db/authorization-actor [{:actor-id actor-id} role-id])
+                                             (from :mushin.db/authorization-role [{:xt/id role-id} :name :attrs]))
+                                            (without :xt/id))))})
+                        (limit 1)))) 
+                 id-or-nickname]
+         opts)))
 
-(defn insert-user-tx
+(defn get-user-with-actor
+  "Query the database for a user with `id-or-nickname`. If none exists, return `nil`.
+
+  Also returns, merged with the user map, and each of the user's roles in the `:roles` key."
+  [db-con id-or-nickname opts]
+  (first
+   (xt/q db-con [(xt/template
+                  (fn [id-or-nickname]
+                    (-> (from :mushin.db/users [* actor-id {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
+                        (with {:roles
+                               (pull* (fn [actor-id]
+                                        (-> (unify
+                                             (from :mushin.db/authorization-actor [{:actor-id actor-id} role-id])
+                                             (from :mushin.db/authorization-role [{:xt/id role-id} :name :attrs]))
+                                            (without :xt/id))))})
+                        (limit 1)))) 
+                 id-or-nickname]
+         opts)))
+
+(defn insert-local-user-tx
   "Create an insertion transaction for `user`.
 
   This transaction will result in an exception if a user with the same nickname
   already exists."
-  [{:keys [nickname] :as user}]
+  [{:keys [nickname xt/id] :as user} actor authn-entry]
   ;; TODO also assert that the ID doesn't exist.
   [(assert-not-exists-tx
     (xt/template (fn [nickname]
                    (-> (from :mushin.db/users [{:nickname nickname}])
                        (limit 1))))
     nickname)
+   (assert-not-exists-tx
+    (xt/template (fn [id]
+                   (-> (from :mushin.db/users [{:xt/id id}])
+                       (limit 1))))
+    id)
+   (assert-not-exists-tx
+    (xt/template (fn [id]
+                   (-> (from :mushin.db/actor [{:xt/id id}])
+                       (limit 1))))
+    (:xt/id actor))
+   (assert-not-exists-tx
+    (xt/template (fn [id]
+                   (-> (from :mushin.db/authn [{:xt/id id}])
+                       (limit 1))))
+    (:xt/id authn-entry))
+   [:put-docs :mushin.db/actor actor]
+   [:put-docs :mushin.db/authn authn-entry]
    [:put-docs :mushin.db/users user]])
 
 (defn search-user
@@ -121,8 +180,7 @@
   ;; TODO switch to like-regex when I figure out how that works.
   (xt/q db-con [(xt/template
                  (fn [search-term]
-                   (-> (from :mushin.db/users [~@safe-user-columns])
+                   (-> (from :mushin.db/users [*])
                        (where (like nickname search-term)))))
                 search-term]
         opts))
-

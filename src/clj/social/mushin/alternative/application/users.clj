@@ -9,7 +9,7 @@
 (defn get-user-by-id
   "Get a user by its `user-id`, or `nil` if no such user exists."
   ([depot user-id depot-opts]
-   (depot/get-user-by-id depot user-id depot-opts))
+   (depot/get-by-nickname-or-id depot user-id :full depot-opts))
   ([depot user-id]
    (get-user-by-id depot user-id nil)))
 
@@ -45,13 +45,13 @@
                                                      bucket)
           ;; TODO better handle default images.
           (lu/uri "http://unknown"))]
-    (when (depot/get-user-by-nickname depot nickname)
+    (when (depot/user-exists? depot nickname {})
       (log/info {:event :creating-user-failed :nickname nickname :reason :user-already-exists})
       (err/app-error "A user by that nickname already exists" :user-already-exists {}))
     (log/info {:event :creating-user :nickname nickname})
 
-    (let [doc (users/create-local-user nickname password
-                                       avatar banner
-                                       bio display-name)]
-      {:user doc
-       :db-result (depot/insert-user depot doc depot-opts)})))
+    (let [[user-doc actor auth-entry] (users/create-local-user nickname password
+                                                          avatar banner
+                                                          bio display-name)]
+      {:user user-doc
+       :db-result (depot/insert-local-user depot user-doc actor auth-entry depot-opts)})))

@@ -61,12 +61,13 @@
            :handler (swagger/create-swagger-handler)}}]
    ["/v1"
     ["/are-you-ok"
-     {:get {:handler (ok
-                      {:time (time/zoned-date-time (time/instant) "UTC")
-                       :up-since (sys/process-start-time)
-                       :threads (sys/thread-count)
-                       :memory (sys/memory-usage)
-                       :status :up})}}] ; TODO no-cache response header
+     {:get {:handler (fn [_]
+                       (ok
+                        {:time (time/zoned-date-time (time/instant) "UTC")
+                         :up-since (sys/process-start-time)
+                         :threads (sys/thread-count)
+                         :memory (sys/memory-usage)
+                         :status :up}))}}] ; TODO no-cache response header
 
     ["/authn"
      ["/recall"
@@ -178,7 +179,7 @@
                  )
                opts)
               :parameters {:body [:map
-                                  [:content :text]]}}}]]
+                                  [:content :string]]}}}]]
 
     ["/users"
      {:middleware [(partial auth/wrap-authenticate-user opts true)]}
@@ -204,7 +205,8 @@
                                 (app-users/create-user! depot bucket {:async? async?} nickname password avatar banner bio display-name)]
                             (if async?
                               (created (lu/join host (str "/@" nickname "/") {:id id}))
-                              (ok {:id id})))))
+                              (ok {:id id}))))
+                        opts)
               :parameters {:body [:map
                                   [:email {:optional true} types/email-schema]
                                   [:password [:string {:min 8 :max 128}]]

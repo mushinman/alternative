@@ -3,22 +3,24 @@
             [clojure.tools.logging :as log]
             [social.mushin.alternative.application.depot :as db-depot]
             [social.mushin.alternative.db.xtdb.xtdb-depot :as db-xtdb]
-            [kit.ig-utils :as ig-utils]))
+            [kit.ig-utils :as ig-utils])
+  (:import [java.io Closeable]))
 
 
 (defmethod ig/init-key :social.mushin.alternative.depot/depot
-  [_ {:keys [db-type cfg bucket]}]
+  [_ {:keys [db-type cfg bucket cache]}]
   (log/info "Creating depot with configuration" cfg)
   (case db-type
     :xtdb2
-    (db-xtdb/create-xtdb-depot cfg bucket)
+    (db-xtdb/create-xtdb-depot cfg bucket cache)
 
     (throw (ex-info "Misconfiguration!: Bad db-type. Accepted values are: xtdbv2" {:db-type db-type}))))
 
 (defmethod ig/suspend-key! :social.mushin.alternative.depot/depot
   [_ depot]
   ;; TODO if we ever add more DB's we need to double-check that this works.
-  (db-depot/close depot))
+  (when (instance? Closeable depot)
+    (.close ^Closeable depot)))
 
 (defmethod ig/resume-key :social.mushin.alternative.depot/depot
   [key opts old-opts old-impl]

@@ -15,7 +15,7 @@
   [{:keys [xt/id] :as status}]
   [(assert-not-exists-tx
     (xt/template (fn [id]
-                   (-> (from :mushin.db/users [{:xt/id id}])
+                   (-> (from :mushin.db/statuses [{:xt/id id}])
                        (limit 1))))
     id)
    [:put-docs :mushin.db/statuses status]])

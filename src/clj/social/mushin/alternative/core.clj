@@ -7,7 +7,6 @@
 
    ;; Edges
    [kit.edge.cache.redis] 
-   [kit.edge.http.hato] 
    [kit.edge.scheduling.quartz] 
    [kit.edge.utils.metrics] 
    [kit.edge.server.undertow]
@@ -19,6 +18,7 @@
    [social.mushin.alternative.web.sign]
    [social.mushin.alternative.db.tasks]
    [social.mushin.alternative.web.config]
+   [social.mushin.alternative.cache]
 
    ;; Routes
    [social.mushin.alternative.web.routes.api])
