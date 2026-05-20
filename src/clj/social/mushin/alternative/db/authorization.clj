@@ -5,7 +5,6 @@
 
 (def authorization-permissions-schema
   [:enum
-   :admin-panel/read ; Enable logging into the admin panel.
    :roles/read :roles/write :roles/delete
    :users/delete])
 

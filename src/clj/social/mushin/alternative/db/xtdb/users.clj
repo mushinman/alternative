@@ -2,8 +2,7 @@
   (:require [xtdb.api :as xt]
             [social.mushin.alternative.db.xtdb.util :refer [assert-not-exists-tx]]
             [social.mushin.alternative.db.authentication :as authn]
-            [social.mushin.alternative.db.users :as base-users]
-            [social.mushin.alternative.files :refer [coerce-to-host-uri coerce-to-uri]]))
+            [social.mushin.alternative.db.users :as base-users]))
 
 (defn can-login?
   "Check that a given password matches a given nickname.
@@ -58,24 +57,6 @@
    first
    boolean))
 
-(defn user->xtdb-doc
-  "Convert any values in `user` to equivalent values that xtdb will accept.
-
-  This function is the reverse of `user->xtdb-doc`."
-  [{:keys [avatar banner] :as user}]
-  (assoc user
-         ;; xtdb only likes native URIs.
-         :avatar (coerce-to-host-uri avatar)
-         :banner (coerce-to-host-uri banner)))
-
-(defn xtdb-doc->user
-  "Convert any values in `doc` from their xtdb equivalent values to their internal values.
-
-  This function is the reverse of `user->xtdb-doc`."
-  [{:keys [avatar banner] :as doc}]
-  (assoc doc 
-         :avatar (coerce-to-uri avatar)
-         :banner (coerce-to-uri banner)))
 
 (defn deactivate-user-tx
   "Create a xtdb transaction part for deleting a user."

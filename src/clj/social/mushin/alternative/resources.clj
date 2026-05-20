@@ -3,7 +3,7 @@
             [clojure.tools.logging :as log]
             [social.mushin.alternative.resources.file-system-bucket :as file-bucket]
             [social.mushin.alternative.files :as files]
-            [lambdaisland.uri :refer [uri]]
+            [social.mushin.alternative.uri :refer [uri]]
             [kit.ig-utils :as ig-utils]))
 
 (defmethod ig/init-key :social.mushin.alternative.resources/bucket [_ location]

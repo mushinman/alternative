@@ -1,8 +1,7 @@
 (ns social.mushin.alternative.db.types
   "A collection of defined malli schema, validation functions, and definitions
   for database data and types."
-  (:require [lambdaisland.uri :as li-uri]
-            [malli.experimental.time :as mallt]
+  (:require [malli.experimental.time :as mallt]
             [social.mushin.alternative.validators :refer [is-email-valid?]]))
 
 (def created-at
@@ -12,13 +11,10 @@
 (def updated-at
   "Malli schema for an updated-at timestamp."
   [:updated-at (mallt/-zoned-date-time-schema)])
-            
+
 (def uri-schema
-  "Malli schema for lambdaisland URIs."
-  [:fn {:error/message "Must be a URI"} 
-   (fn [v]
-     (or (li-uri/uri? v)
-         (uri? v)))])
+  "Malli schema for URIs."
+  [:fn {:error/message "Must be a URI"} uri?])
 
 (def email-schema
   "Malli schmea for email addressess."

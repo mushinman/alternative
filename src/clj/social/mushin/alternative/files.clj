@@ -1,14 +1,11 @@
 (ns social.mushin.alternative.files
-  (:require [clojure.java.io :as io]
-            [lambdaisland.uri :as li-uri]
-            [clojure.core :as c])
+  (:require [clojure.core :as c])
   (:import [java.nio.file CopyOption Files Path Paths LinkOption]
            [java.nio.file.attribute FileAttribute]
            [java.nio.charset StandardCharsets]
            [java.io File OutputStream InputStream]
            [java.net URI]
            [org.apache.tika.metadata Metadata]
-           [org.apache.tika.detect Detector]
            [org.apache.tika.config TikaConfig]
            [org.apache.tika.io TikaInputStream]))
 
@@ -65,12 +62,6 @@
         (File. u)
         (throw (ex-info "only file:// is supported" {:uri u}))))
 
-    ;; Lambdaisland uri.
-    (li-uri/uri? p)
-    (if (= (p :scheme) "file")
-      (File. (URI. (str p)))
-      (throw (ex-info "only file:// is supported" {:uri p})))
-
     :else nil))
 
 (defn coerce-to-file!
@@ -100,13 +91,6 @@
         (Path/of u)
         (throw (ex-info "only file:// is supported" {:uri u}))))
 
-
-    ;; Lambdaisland uri.
-    (li-uri/uri? p)
-    (if (= (p :scheme) "file")
-      (Path/of (URI. (str p)))
-      (throw (ex-info "only file:// is supported" {:uri p})))
-
     :else nil))
 
 
@@ -116,35 +100,6 @@
   (or (coerce-to-path p)
       (throw (ex-info "unsupported path type" {:obj p
                                                :type (class p)}))))
-
-(defn coerce-to-uri
-  "Coerce `o` to a lambdaisland uri."
-  [o]
-  (cond
-    (li-uri/uri? o) o
-
-    (or (string? o) (uri? o)) (li-uri/uri o)
-
-    (or (instance? File o) (instance? Path o)) (assoc (li-uri/uri (.toString o))
-                                                      :scheme "file") 
-
-    :else (throw (ex-info "Cannot convert `o` to a URI:" {:object o}))))
-
-(defn coerce-to-host-uri
-  "Coerce `o` to an instance of the URI type of the host system."
-  ^URI
-  [o]
-  (cond
-    (or (uri? o)
-        (li-uri/uri? o)
-        (string? o))
-    (URI. (str o))
-
-    (instance? File o) (.toURI ^File o)
-
-    (instance? Path o) (.toURI ^Path o)
-
-    :else (throw (ex-info "Cannot convert `o` to a URI:" {:object o}))))
 
 (defn sanitize-path
   [p]

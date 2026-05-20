@@ -1,6 +1,6 @@
 (ns social.mushin.alternative.db.resource-meta
   (:require [social.mushin.alternative.db.types :as types]
-            [lambdaisland.uri :refer [uri]]
+            [social.mushin.alternative.uri :refer [uri]]
             [java-time.api :as time]))
             
 

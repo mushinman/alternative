@@ -1,14 +1,15 @@
 (ns social.mushin.alternative.web.config
   (:require [integrant.core :as ig]
-            [lambdaisland.uri :refer [uri]]
             [clojure.tools.logging :as log]
+            [social.mushin.alternative.uri :refer [uri]]
             [kit.ig-utils :as ig-utils]))
 
 
-(defmethod ig/init-key :social.mushin.alternative.web.config/endpoint [_ config]
+(defmethod ig/init-key :social.mushin.alternative.web.config/endpoint [_ {:keys [url] :as config}]
   (log/info "Setting up web configuration" config)
-  (merge (uri "")
-         config))
+  (if (map? url)
+    (apply uri url)
+    (uri url)))
 
 (defmethod ig/suspend-key! :social.mushin.alternative.web/endpoint [_ _])
 

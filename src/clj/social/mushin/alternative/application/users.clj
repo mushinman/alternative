@@ -1,7 +1,7 @@
 (ns social.mushin.alternative.application.users
   (:require [social.mushin.alternative.application.depot :as depot]
             [social.mushin.alternative.resources.bucket :as bucket]
-            [lambdaisland.uri :as lu]
+            [social.mushin.alternative.uri :refer [uri]]
             [clojure.tools.logging :as log]
             [social.mushin.alternative.db.users :as users]
             [social.mushin.alternative.errors :as err]))
@@ -37,14 +37,14 @@
                                                      ;(if (mime/is-supported-image-type? ))
                                                      "image/png"
                                                      bucket)
-          (lu/uri "http://unknown"))
+          (uri "http://unknown"))
         banner
         (if banner
           (bucket/create-resource-from-static-image! (:tmpfile banner)
                                                      "image/png"
                                                      bucket)
           ;; TODO better handle default images.
-          (lu/uri "http://unknown"))]
+          (uri "http://unknown"))]
     (when (depot/user-exists? depot nickname {})
       (log/info {:event :creating-user-failed :nickname nickname :reason :user-already-exists})
       (err/app-error "A user by that nickname already exists" :user-already-exists {}))

@@ -89,6 +89,9 @@
  :social.mushin.alternative.cache/local-cache
  {}
 
+ :social.mushin.alternative.search/lucene
+ {}
+
  ;; resources/system.edn
  :social.mushin.alternative.depot/depot
  {:db-type :xtdb2

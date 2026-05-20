@@ -2,12 +2,12 @@
   (:require [social.mushin.alternative.web.auth-utils :refer [failed-auth! check-basic-auth! remember-me-cookie]]
             [social.mushin.alternative.db.remember-me :as remember-me]
             [clojure.tools.logging :as log]
+            [social.mushin.alternative.uri :refer [join]]
             [clojure.string :as cstr]
             [social.mushin.alternative.web.middleware.exception :as exception]
             [social.mushin.alternative.web.middleware.formats :as formats]
             [social.mushin.alternative.web.middleware.decode :as decode]
             [social.mushin.alternative.web.middleware.auth :as auth] 
-            [lambdaisland.uri :as lu]
             [social.mushin.alternative.utils :as utils]
             [social.mushin.alternative.web.utils :refer [create-restful-controller] :as web-utils]
             [social.mushin.alternative.application.users :as app-users]
@@ -204,7 +204,7 @@
                           (let [{{:keys [xt/id]} :user}
                                 (app-users/create-user! depot bucket {:async? async?} nickname password avatar banner bio display-name)]
                             (if async?
-                              (created (lu/join host (str "/@" nickname "/") {:id id}))
+                              (created (join host (str "/@" nickname "/")) {:id id})
                               (ok {:id id}))))
                         opts)
               :parameters {:body [:map

@@ -7,7 +7,7 @@
             [social.mushin.alternative.utils :refer [grapheme-count]]
             [social.mushin.alternative.validators :refer [is-email-user-valid?]]
             [social.mushin.alternative.db.types :refer [uri-schema email-schema]]
-            [social.mushin.alternative.files :refer [coerce-to-uri]]))
+            [social.mushin.alternative.uri :refer [uri]]))
 
 (defn- is-valid-nickname?
   "Return true if `v` is a valid nickname, otherwise false."
@@ -83,8 +83,8 @@
                :local? true
                :state {:type :ok}
                :log-counter 0
-               :avatar (coerce-to-uri avatar-uri)
-               :banner (coerce-to-uri banner-uri)
+               :avatar (uri avatar-uri)
+               :banner (uri banner-uri)
                :bio bio
                :joined-at now
                :privacy-level :open

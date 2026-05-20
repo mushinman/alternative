@@ -2,7 +2,7 @@
   (:require [social.mushin.alternative.files :as files]
             [clojure.string :as cstr]
             [social.mushin.alternative.resources.bucket :as interface]
-            [lambdaisland.uri :refer [join]]
+            [social.mushin.alternative.uri :refer [join]]
             [clojure.java.io :as io])
   (:import [java.nio.file Path]
            [java.io InputStream]))
