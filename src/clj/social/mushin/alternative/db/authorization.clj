@@ -15,11 +15,11 @@
     [:name             :string]
     [:attrs            [:set authorization-permissions-schema]]]})
 
-(def authorization-actor-role-schema
+(def authorization-user-role-schema
   {:mushin.db/authorization-actor
    [:map
     [:xt/id            :uuid]
-    [:actor-id         :uuid]
+    [:user-id          :uuid]
     [:role-id          :uuid]
     ts/created-at]})
 
@@ -29,9 +29,9 @@
    :name name
    :attrs attrs})
 
-(defn create-actor-role
+(defn create-user-role
   [actor-id role-id]
   {:xt/id (uuid/v4)
-   :actor-id actor-id
+   :user-id actor-id
    :role-id role-id
    :created-at (time/zoned-date-time)})

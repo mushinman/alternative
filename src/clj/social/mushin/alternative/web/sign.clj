@@ -2,7 +2,7 @@
   (:require [integrant.core :as ig]
             [buddy.core.keys :as sign-keys]
             [clojure.tools.logging :as log]
-            [kit.ig-utils :as ig-utils]))
+            [social.mushin.alternative.utils :as ig-utils]))
 
 (defmethod ig/init-key :social.mushin.alternative.web.sign/jwk [_ {:keys [priv pub]}]
   (log/info "Initializing the JWK token setup...")

@@ -1,20 +1,10 @@
 (ns social.mushin.alternative.uri
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [social.mushin.alternative.utils :refer [when-some?]])
   (:import [java.net URI URLEncoder]
            [java.nio.charset StandardCharsets]
            [java.nio.file Path]
            [java.io File]))
-
-(defmacro when-some?
-  [expr form]
-  `(when (some? ~expr)
-     ~form))
-
-(defmacro if-some?
-  [expr then-form else-form]
-  `(if (some? ~expr)
-     ~then-form
-     ~else-form))
 
 (defn url-encode
   "URL encode a string."

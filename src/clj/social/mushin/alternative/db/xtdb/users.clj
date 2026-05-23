@@ -18,14 +18,16 @@
    or a reason code for login rejection. Could be: `no-account`,
   `:dead-account`, or `:wrong-nickname-or-password`"
   ([db-con nickname password opts]
-   (let [{{:keys [type] :as state} :state :keys [auth-entry xt/id]}
+   (let [{{:keys [type] :as state} :state :keys [auth-entry user-id]}
          (first
           (xt/q db-con
                 [(xt/template
                   (fn [nickname]
-                    (-> (from :mushin.db/users [{:nickname nickname} state auth-id xt/id])
-                        (with {:auth-enty (pull (fn [auth-id]
-                                                  (from :mushin.db/authn [* {:xt/id auth-id}])))})
+                    (-> (from :mushin.db/users [{:nickname nickname, :xt/id user-id} state])
+                        (with {:auth-entry
+                               (pull (fn [user-id]
+                                       (-> (from :mushin.db/authn [* {:for-id user-id, :for-type :mushin.db/users}])
+                                           (limit 1))))})
                         (limit 1))))
                  nickname]
                 opts))]
@@ -38,7 +40,7 @@
          (throw (ex-info "Invalid state for account" {:invalid-state :user :state state})))
 
        (and auth-entry (authn/verify-password auth-entry password))
-       id
+       user-id
 
        :else
        :wrong-nickname-or-password)))
@@ -61,7 +63,7 @@
 (defn deactivate-user-tx
   "Create a xtdb transaction part for deleting a user."
   [user-id]
-  [:patch-docs :mushin.db/users (base-users/create-user-tombstone user-id)])
+  [[:patch-docs :mushin.db/users (base-users/create-user-tombstone user-id)]])
 
 (defn get-user-id-by-nickname
   "Query the database for the user's id with `nickname`."
@@ -86,6 +88,7 @@
                  id-or-nickname]
          opts)))
 
+
 (defn get-user-actor-data
   "Query the database for a user with `id-or-nickname`. If none exists, return `nil`.
 
@@ -94,12 +97,11 @@
   (first
    (xt/q db-con [(xt/template
                   (fn [id-or-nickname]
-                    (-> (unify (from :mushin.db/users [actor-id {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
-                               (from :mushin.db/actor [* {:xt/id actor-id}]))
+                    (-> (from :mushin.db/users [{:xt/id user-id} {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
                         (with {:roles
-                               (pull* (fn [actor-id]
+                               (pull* (fn [user-id]
                                         (-> (unify
-                                             (from :mushin.db/authorization-actor [{:actor-id actor-id} role-id])
+                                             (from :mushin.db/authorization-user-role [{:user-id user-id} role-id])
                                              (from :mushin.db/authorization-role [{:xt/id role-id} :name :attrs]))
                                             (without :xt/id))))})
                         (limit 1)))) 
@@ -114,14 +116,14 @@
   (first
    (xt/q db-con [(xt/template
                   (fn [id-or-nickname]
-                    (-> (from :mushin.db/users [* actor-id {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
+                    (-> (from :mushin.db/users [* {:xt/id user-id} {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
                         (with {:roles
-                               (pull* (fn [actor-id]
+                               (pull* (fn [user-id]
                                         (-> (unify
-                                             (from :mushin.db/authorization-actor [{:actor-id actor-id} role-id])
+                                             (from :mushin.db/authorization-user-role [{:user-id user-id} role-id])
                                              (from :mushin.db/authorization-role [{:xt/id role-id} :name :attrs]))
                                             (without :xt/id))))})
-                        (limit 1)))) 
+                        (limit 1))))
                  id-or-nickname]
          opts)))
 
@@ -130,7 +132,7 @@
 
   This transaction will result in an exception if a user with the same nickname
   already exists."
-  [{:keys [nickname xt/id] :as user} actor authn-entry]
+  [{:keys [nickname xt/id] :as user} authn-entry]
   ;; TODO also assert that the ID doesn't exist.
   [(assert-not-exists-tx
     (xt/template (fn [nickname]
@@ -144,15 +146,9 @@
     id)
    (assert-not-exists-tx
     (xt/template (fn [id]
-                   (-> (from :mushin.db/actor [{:xt/id id}])
-                       (limit 1))))
-    (:xt/id actor))
-   (assert-not-exists-tx
-    (xt/template (fn [id]
                    (-> (from :mushin.db/authn [{:xt/id id}])
                        (limit 1))))
     (:xt/id authn-entry))
-   [:put-docs :mushin.db/actor actor]
    [:put-docs :mushin.db/authn authn-entry]
    [:put-docs :mushin.db/users user]])
 

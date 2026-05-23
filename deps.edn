@@ -5,20 +5,40 @@
  :deps    {org.clojure/clojure             {:mvn/version "1.12.0"}
            org.clojure/core.cache          {:mvn/version "1.2.263"}
 
+           aero/aero {:mvn/version "1.1.6"}
+
+           com.taoensso/carmine {:mvn/version "3.5.0"}
+           com.troy-west/cronut {:mvn/version "0.2.6"}
+           clj-commons/iapetos {:mvn/version "0.1.14"}
+           io.prometheus/simpleclient             {:mvn/version "0.16.0"}
+           io.prometheus/simpleclient_common      {:mvn/version "0.16.0"}
+           io.prometheus/simpleclient_hotspot     {:mvn/version "0.16.0"}
+           io.prometheus/simpleclient_httpserver  {:mvn/version "0.16.0"}
+           io.prometheus/simpleclient_pushgateway {:mvn/version "0.16.0"}
+
            ;; Routing
            metosin/reitit                  {:mvn/version "0.9.1"
                                             :exclusions [metonsin/malli]}
 
-           ;; Lucene
-           org.apache.lucene/lucene-core          {:mvn/version "10.4.0"}
-           org.apache.lucene/lucene-analysis-common {:mvn/version "10.4.0"}
-           org.apache.lucene/lucene-queryparser   {:mvn/version "10.4.0"}
+           ;; Rest formats.
+           com.cognitect/transit-clj {:mvn/version "1.1.357"}
+           luminus-transit/luminus-transit {:mvn/version "0.1.6"}
+           cheshire/cheshire {:mvn/version "6.2.0"}
+
+           integrant/integrant {:mvn/version "1.0.1"}
 
            ;; Ring
            metosin/ring-http-response      {:mvn/version "0.9.3"}
-           ring/ring-core                  {:mvn/version "1.14.2"}
-           ring/ring-defaults              {:mvn/version "0.6.0"}
 
+           ring/ring-core                   {:mvn/version "1.15.4"}
+           ring/ring-defaults               {:mvn/version "0.7.0"}
+
+
+           ;; Undertow Ring adapter
+           luminus/ring-undertow-adapter    {:mvn/version "1.4.4"}
+
+           ;; Reitit Ring router
+           metosin/reitit-ring              {:mvn/version "0.10.1"}
            hiccup/hiccup {:mvn/version "2.0.0"}
 
            ;; Image codec transcoding.
@@ -29,12 +49,6 @@
            net.logstash.logback/logstash-logback-encoder {:mvn/version "7.4"}
            ring-logger/ring-logger {:mvn/version "1.1.1"}
 
-
-           ;; Data coercion
-           luminus-transit/luminus-transit {:mvn/version "0.1.6"
-                                            :exclusions [com.cognitect/transit-clj]}
-           metosin/muuntaja                {:mvn/version "0.6.8"}
-           metosin/muuntaja-form           {:mvn/version "0.6.8"}
 
            ;; Apache
            org.apache.commons/commons-math3 {:mvn/version "3.6.1"}
@@ -59,14 +73,7 @@
 
            ;com.fluree/json-ld {:mvn/version "1.0.1"} ; This causes XTDB to fail to work for some reason?
 
-           metosin/malli {:mvn/version "0.19.1"}
-
-           ;; kit Libs
-           io.github.kit-clj/kit-core {:mvn/version "1.0.10"}
-           io.github.kit-clj/kit-undertow {:mvn/version "1.0.8"}
-           io.github.kit-clj/kit-quartz {:mvn/version "1.0.5"}
-           io.github.kit-clj/kit-redis {:mvn/version "1.0.7"}
-           io.github.kit-clj/kit-metrics {:mvn/version "1.0.4"}}
+           metosin/malli {:mvn/version "0.19.1"}}
  :mvn/repos
  {"css4j" {:url "https://css4j.github.io/maven/"}}
  :aliases {:build {:deps {io.github.clojure/tools.build {:mvn/version "0.9.6"}}

@@ -2,8 +2,6 @@
   (:require [malli.experimental.time :as mallt]
             [java-time.api :as time]
             [clj-uuid :as uuid]
-            [social.mushin.alternative.db.actor :as actor]
-            [social.mushin.alternative.db.authentication :as authn]
             [social.mushin.alternative.utils :refer [grapheme-count]]
             [social.mushin.alternative.validators :refer [is-email-user-valid?]]
             [social.mushin.alternative.db.types :refer [uri-schema email-schema]]
@@ -55,8 +53,6 @@
    :mushin.db/users
    [:map
     [:xt/id                   :uuid]
-    [:actor-id                :uuid]
-    [:auth-id                 :uuid]
     [:email {:optional true}  email-schema]
     [:log-counter             :int]
     [:nickname                nickname-schema]
@@ -71,36 +67,30 @@
     [:last-logged-in-at       (mallt/-zoned-date-time-schema)]]})
 
 (defn create-local-user
-  ([nickname password avatar-uri banner-uri bio display-name email]
-   (let [now (time/zoned-date-time)
-         actor (actor/create-actor :user)
-         auth-entry (authn/create-password-hashed-authn-entry password)]
-     [(cond-> {:xt/id (uuid/v4)
-               :actor-id (:xt/id actor)
-               :auth-id (:xt/id auth-entry)
-               :nickname nickname
-               :display-name display-name
-               :local? true
-               :state {:type :ok}
-               :log-counter 0
-               :avatar (uri avatar-uri)
-               :banner (uri banner-uri)
-               :bio bio
-               :joined-at now
-               :privacy-level :open
-               :last-logged-in-at now}
-        email (assoc :email email))
-      actor
-      auth-entry]))
-  ([nickname password avatar-uri banner-uri bio display-name]
-   (create-local-user nickname password avatar-uri banner-uri bio display-name nil)))
+  ([nickname avatar-uri banner-uri bio display-name email]
+   (let [now (time/zoned-date-time)]
+     (cond-> {:xt/id (uuid/v4)
+              :nickname nickname
+              :display-name display-name
+              :local? true
+              :state {:type :ok}
+              :log-counter 0
+              :avatar (uri avatar-uri)
+              :banner (uri banner-uri)
+              :bio bio
+              :joined-at now
+              :privacy-level :open
+              :last-logged-in-at now}
+       email (assoc :email email))))
+  ([nickname avatar-uri banner-uri bio display-name]
+   (create-local-user nickname avatar-uri banner-uri bio display-name nil)))
 
 ;; TODO set avatar and banner URIs to some default.
 (defn create-user-tombstone
   [user-id]
   {:xt/id user-id
    :display-name ""
-   :state {:type :timeout}
+   :state {:type :tombstone}
    :bio ""
    :privacy-level :open
    :last-logged-in-at (time/zoned-date-time)})

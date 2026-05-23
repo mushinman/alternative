@@ -11,6 +11,8 @@
   {:mushin.db/authn
    [:map
     [:xt/id            :uuid]
+    [:for-id           [:or :uuid :string]]
+    [:for-type         :keyword]
     ts/created-at
     ts/updated-at
     [:payload
@@ -21,14 +23,16 @@
         [:hash :string]]]]]]})
 
 (defn create-password-hashed-authn-entry
-  [password]
+  [password for-id for-type]
   (let [now (time/zoned-date-time)]
     {:xt/id (uuid/v4)
+     :for-id for-id
+     :for-type for-type
      :payload {:hash (crypt/hash-password password)
                :type :password-hash}
      :created-at now
      :updated-at now}))
 
 (defn verify-password
-  [{:keys [hash]} password]
+  [{{:keys [hash]} :payload} password]
   (:valid (hashers/verify password hash)))

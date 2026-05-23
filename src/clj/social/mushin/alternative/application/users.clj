@@ -4,6 +4,7 @@
             [social.mushin.alternative.uri :refer [uri]]
             [clojure.tools.logging :as log]
             [social.mushin.alternative.db.users :as users]
+            [social.mushin.alternative.db.authentication :as authn]
             [social.mushin.alternative.errors :as err]))
 
 (defn get-user-by-id
@@ -34,7 +35,7 @@
   (let [avatar
         (if avatar
           (bucket/create-resource-from-static-image! (:tmpfile avatar)
-                                                     ;(if (mime/is-supported-image-type? ))
+                                        ;(if (mime/is-supported-image-type? ))
                                                      "image/png"
                                                      bucket)
           (uri "http://unknown"))
@@ -49,9 +50,9 @@
       (log/info {:event :creating-user-failed :nickname nickname :reason :user-already-exists})
       (err/app-error "A user by that nickname already exists" :user-already-exists {}))
     (log/info {:event :creating-user :nickname nickname})
-
-    (let [[user-doc actor auth-entry] (users/create-local-user nickname password
-                                                          avatar banner
-                                                          bio display-name)]
+    (let [{:keys [xt/id] :as user-doc} (users/create-local-user nickname 
+                                                                avatar banner
+                                                                bio display-name)
+          auth-entry (authn/create-password-hashed-authn-entry password id :mushin.db/users)]
       {:user user-doc
-       :db-result (depot/insert-local-user depot user-doc actor auth-entry depot-opts)})))
+       :db-result (depot/insert-local-user depot user-doc auth-entry depot-opts)})))

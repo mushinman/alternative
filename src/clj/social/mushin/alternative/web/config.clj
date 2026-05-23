@@ -2,14 +2,12 @@
   (:require [integrant.core :as ig]
             [clojure.tools.logging :as log]
             [social.mushin.alternative.uri :refer [uri]]
-            [kit.ig-utils :as ig-utils]))
+            [social.mushin.alternative.utils :as ig-utils]))
 
 
 (defmethod ig/init-key :social.mushin.alternative.web.config/endpoint [_ {:keys [url] :as config}]
   (log/info "Setting up web configuration" config)
-  (if (map? url)
-    (apply uri url)
-    (uri url)))
+  (uri url))
 
 (defmethod ig/suspend-key! :social.mushin.alternative.web/endpoint [_ _])
 

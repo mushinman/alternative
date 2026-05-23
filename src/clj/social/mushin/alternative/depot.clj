@@ -3,7 +3,7 @@
             [clojure.tools.logging :as log]
             [social.mushin.alternative.application.depot :as db-depot]
             [social.mushin.alternative.db.xtdb.xtdb-depot :as db-xtdb]
-            [kit.ig-utils :as ig-utils])
+            [social.mushin.alternative.utils :as ig-utils])
   (:import [java.io Closeable]))
 
 

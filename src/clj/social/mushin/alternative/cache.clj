@@ -2,7 +2,7 @@
   (:require [integrant.core :as ig]
             [clojure.tools.logging :as log]
             [clojure.core.cache.wrapped :as cw]
-            [kit.ig-utils :as ig-utils]))
+            [social.mushin.alternative.utils :as ig-utils]))
 
 
 (defmethod ig/init-key :social.mushin.alternative.cache/local-cache

@@ -1,7 +1,7 @@
 (ns social.mushin.alternative.db.tasks
   (:require [integrant.core :as ig]
             [clojure.tools.logging :as log]
-            [kit.ig-utils :as ig-utils]
+            [social.mushin.alternative.utils :as ig-utils]
             [social.mushin.alternative.db.xtdb.util :as db]
             [social.mushin.alternative.db.remember-me :as db-tokens]))
 

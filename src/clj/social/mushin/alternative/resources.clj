@@ -4,7 +4,7 @@
             [social.mushin.alternative.resources.file-system-bucket :as file-bucket]
             [social.mushin.alternative.files :as files]
             [social.mushin.alternative.uri :refer [uri]]
-            [kit.ig-utils :as ig-utils]))
+            [social.mushin.alternative.utils :as ig-utils]))
 
 (defmethod ig/init-key :social.mushin.alternative.resources/bucket [_ location]
   (log/info "Initializing the resource store bucket...")

@@ -31,7 +31,7 @@
   | `:tx`  | Any  | The database implementation's return value |
   "
   ;; Misc.
-  (-db-time [d opts] "Returns the current time on the database.")
+  (db-time [d opts] "Returns the current time on the database.")
 
   ;; Session state.
   (-delete-expired-session [d opts] "Clean up expired session state.")
@@ -46,10 +46,10 @@ and commit `session` to session state.")
   ;; User.
   (-check-nickname-and-password [d nickname password opts] "Check a user's `nickname` and `password` for validity.
 Returns true if the `password` is correct for `nickname`, otherwise false.")
-  (insert-local-user [d user actor auth opts] "Insert `user`, `actor`, and `auth`. Fails if a user with the same nickname already exists.")
+  (insert-local-user [d user auth opts] "Insert `user` and `auth`. Fails if a user with the same nickname already exists.")
   (-deactivate-user [d id opts] "Deactivate a user with `id`. Action is a no-op if such a user does not exist.")
   (-search-user [d search-term opts] "Search for a user with a string `search-term`.")
-  (get-by-nickname-or-id [d id-or-nickname rows opts] "Get a user by their `nickname` or `id`, along with its actor information.
+  (get-by-nickname-or-id [d id-or-nickname rows opts] "Get a user by their `nickname` or `id`.
 
 `rows` is one of the following:
 - `:display`: Return the user's display data
@@ -68,13 +68,6 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
     "Get a resource's metadat by its `id`.")
   (-delete-resource [d id opts]
     "Delete a resource with `id`."))
-
-(defn db-time
-  "Returns the current time on the database.
-
-  See `Depot` for further explanation."
-  ([d opts] (-db-time d opts))
-  ([d] (-db-time d {})))
 
 (defn check-nickname-and-password
   "Check a user's `nickname` and `password` for validity.

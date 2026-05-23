@@ -126,8 +126,7 @@
 
 (defrecord ^:private XtdbDepot [db-con resource-map cache]
   Depot
-  (-db-time [_ opts]
-    (db-util/db-time db-con opts))
+  (db-time [_ opts] (db-util/db-time db-con opts))
 
   (-delete-expired-session
     [_ opts]
@@ -154,13 +153,13 @@
 
   (-deactivate-user [_ user-id opts]
     ;; TODO also tombstone all their posts.
-    {:tx (wrap-db-q-or-tx (transact db-con [(users/deactivate-user-tx user-id)] opts))})
+    {:tx (wrap-db-q-or-tx (transact db-con (users/deactivate-user-tx user-id) opts))})
 
   (-search-user [_ search-term opts]
     (users/search-user db-con search-term opts))
 
-  (insert-local-user [_ user actor authn opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (users/insert-local-user-tx user actor authn) opts))})
+  (insert-local-user [_ user authn opts]
+    {:tx (wrap-db-q-or-tx (transact db-con (users/insert-local-user-tx user authn) opts))})
 
   (insert-status [_ status opts]
     {:tx (wrap-db-q-or-tx (transact db-con (statuses/insert-status-tx status) opts))})

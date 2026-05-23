@@ -32,7 +32,7 @@
                                       :cookie-attrs {:max-age     86400
                                                      :http-only   true
                                                      :same-site   :strict}}
-                          :security  {:anti-forgery   false
+                          :security  {:anti-forgery   false ; TODO prolly want to change this.
                                       :xss-protection {:enable? true, :mode :block}
                                       :frame-options  :sameorigin
                                       :content-type-options :nosniff}
@@ -87,9 +87,6 @@
   :pub "./test_key_pub.pem"}
 
  :social.mushin.alternative.cache/local-cache
- {}
-
- :social.mushin.alternative.search/lucene
  {}
 
  ;; resources/system.edn

@@ -6,10 +6,10 @@
    [social.mushin.alternative.env :refer [defaults]]
 
    ;; Edges
-   [kit.edge.cache.redis] 
-   [kit.edge.scheduling.quartz] 
-   [kit.edge.utils.metrics] 
-   [kit.edge.server.undertow]
+   [social.mushin.alternative.undertow]
+   [social.mushin.alternative.redis]
+   [social.mushin.alternative.quartz]
+   [social.mushin.alternative.metrics]
    [social.mushin.alternative.web.handler]
    [social.mushin.alternative.depot]
 
@@ -18,7 +18,7 @@
    [social.mushin.alternative.web.sign]
    [social.mushin.alternative.db.tasks]
    [social.mushin.alternative.web.config]
-   [social.mushin.alternative.cache]
+   [social.mushin.alternative.cache] 
 
    ;; Routes
    [social.mushin.alternative.web.routes.api])

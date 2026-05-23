@@ -1,7 +1,8 @@
 (ns social.mushin.alternative.config
   (:require
-   [kit.config :as config]
    [malli.registry :as mallr]
+   [aero.core :as aero]
+   [clojure.java.io :as io]
    [malli.core :as mallc]
    [malli.experimental.time :as malt]
    [social.mushin.alternative.db.users :as users]
@@ -9,10 +10,22 @@
    [social.mushin.alternative.db.statuses :as statuses]
    [social.mushin.alternative.db.resource-meta :as res-meta]
    [social.mushin.alternative.db.audit-log :as audit-log]
+   [integrant.core :as ig]
    [social.mushin.alternative.db.authorization :as authz]
-   [social.mushin.alternative.db.actor :as actor]
    [social.mushin.alternative.db.authentication :as authn]
    [social.mushin.alternative.db.custom :as custom]))
+
+
+;; These ig functions come from https://github.com/kit-clj/kit/blob/bf96b3e5c07e87862416a5990cbc8d480394f754/libs/kit-core/src/kit/config.clj#L8
+(defmethod aero/reader 'ig/ref
+  [_ _ value]
+  (ig/ref value))
+
+(defmethod aero/reader 'ig/refset
+  [_ _ value]
+  (ig/refset value))
+
+(defmethod ig/init-key :system/env [_ env] env)
 
 (defonce schema-store (atom {}))
 
@@ -28,8 +41,8 @@
   []
   (let [all-schemas (merge users/user-schema statuses/statuses-schema remember-me/remember-me
                            res-meta/resource-meta-schema audit-log/audit-log-schema
-                           authz/authorization-role-schema authz/authorization-actor-role-schema
-                           custom/custom-schema actor/actor-schema authn/authn-schema)]
+                           authz/authorization-role-schema authz/authorization-user-role-schema
+                           custom/custom-schema authn/authn-schema)]
     ;; Add our DB schemas.
     (mallr/set-default-registry!
      (mallr/composite-registry (mallc/default-schemas) (malt/schemas) all-schemas (mallr/mutable-registry schema-store)))))
@@ -37,4 +50,6 @@
 (defn system-config
   [options]
   (init-db-malli!)
-  (config/read-config system-filename options))
+  (if-let [resource (io/resource system-filename)]
+    (aero/read-config resource options)
+    (throw (ex-info "" {}))))

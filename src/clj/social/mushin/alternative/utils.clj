@@ -1,6 +1,11 @@
 (ns social.mushin.alternative.utils
+  (:require [integrant.core :as ig]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log])
+    
   (:import [java.net URI]
-           [java.text BreakIterator]))
+           [java.text BreakIterator]
+           [java.nio.file Files LinkOption Paths]))
 
 (defn to-java-uri
   [uri]
@@ -71,3 +76,36 @@
 (defn condj [v val]
   (cond-> v val (conj val)))
 
+
+;; Taken from https://github.com/kit-clj/kit/blob/bf96b3e5c07e87862416a5990cbc8d480394f754/libs/kit-core/src/kit/ig_utils.clj#L9.
+(defn resume-handler
+  "Useful where you don't want to reset an integrant component in development."
+  [k opts old-opts old-impl]
+  (log/info k "resume check. Same?" (= opts old-opts))
+  (if (= opts old-opts)
+    old-impl
+    (do (ig/halt-key! k old-impl)
+        (ig/init-key k opts))))
+
+(defn last-modified [filename]
+  (let [url (io/resource filename)]
+    (if url
+      (case (.getProtocol url)
+        "file" (-> (.toURI url)
+                   (Paths/get)
+                   (Files/getLastModifiedTime (into-array LinkOption []))
+                   (.toMillis))
+        "jar" 0
+        (throw (ex-info "Unsupported URL protocol" {:protocol (.getProtocol url)})))
+      (throw (ex-info "Resource not found" {:filename filename})))))
+
+(defmacro when-some?
+  [expr form]
+  `(when (some? ~expr)
+     ~form))
+
+(defmacro if-some?
+  [expr then-form else-form]
+  `(if (some? ~expr)
+     ~then-form
+     ~else-form))
