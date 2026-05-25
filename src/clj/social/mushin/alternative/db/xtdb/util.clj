@@ -138,43 +138,24 @@
    not-empty
    boolean))
 
-(defn delete-where
-  "Create a transaction part for a deleting documents based off a XTQL query.
-
-  # Arguments
-   - `table`: The table to delete from
-   - `query`: An XTQL query that returns rows to delete
-
-  # Return value
-  A XTDB transaction vector."
-  [table query]
-  [:sql (-> (h/delete-from table)
-            (h/where
-             [:exists
-              [:raw (-> [:xtql query]
-                        sql/format
-                        first)]])
-            (sql/format {:inline true})
-            first)])
-
 (defn erase-where
-  "Create a transaction part for a deleting documents based off a XTQL query.
+  "Create a SQL transaction from a XTQL query that erases all the documents returned by the query.
+  `args` is for arguments to the query."
+  [table query & args]
+  (sql/format (-> (h/erase-from table)
+                  (h/where
+                   [:exists
+                    (into [:xtql query] args)]))))
 
-  # Arguments
-   - `table`: The table to delete from
-   - `query`: An XTQL query that returns rows to delete
+(defn delete-where
+  "Create a SQL transaction from a XTQL query that deletes all the documents returned by the query.
+  `args` is for arguments to the query."
+  [table query & args]
+  (sql/format (-> (h/delete-from table)
+                  (h/where
+                   [:exists
+                    (into [:xtql query] args)]))))
 
-  # Return value
-  A XTDB transaction vector."
-  [table query]
-  [:sql (-> (h/erase-from table)
-            (h/where
-             [:exists
-              [:raw (-> [:xtql query]
-                        sql/format
-                        first)]])
-            (sql/format {:inline true})
-            first)])
 
 (defn assert-not-exists-tx
   "Assert that no row matches the xtql `query`.

@@ -3,25 +3,24 @@
             [clj-uuid :as uuid]
             [java-time.api :as time]))
 
+(def label-string-schema [:string {:min 1 :max 64}])
 
 (def custom-schema
   {:mushin.db/custom
    [:map
     [:xt/id    :uuid]
-    [:actor-id :uuid]
-    [:label    [:string {:min 1 :max 64}]]
-    [:category [:string {:min 1 :max 64}]]
+    [:owner-id :uuid]
+    [:label    label-string-schema]
+    [:category label-string-schema]
     [:value    :string]
-    ts/created-at
     ts/updated-at]})
 
 (defn create-custom
-  [actor-id label category value]
+  [owner-id label category value]
   (let [now (time/zoned-date-time)]
     {:xt/id (uuid/v4)
-     :actor-id actor-id
+     :actor-id owner-id
      :label label
      :category category
      :value value
-     :created-at now
      :updated-at now}))

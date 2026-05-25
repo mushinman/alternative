@@ -4,6 +4,7 @@
             [social.mushin.alternative.uri :refer [uri]]
             [clojure.tools.logging :as log]
             [social.mushin.alternative.db.users :as users]
+            [social.mushin.alternative.db.custom :as custom]
             [social.mushin.alternative.db.authentication :as authn]
             [social.mushin.alternative.errors :as err]))
 
@@ -15,10 +16,11 @@
    (get-user-by-id depot user-id nil)))
 
 (defn deactivate-user-by-id!
-  ([depot user-id depot-opts]
+  ([depot user-id deactivation-method depot-opts]
+   (log/info {:event :deactivating-user :user-id user-id :reason deactivation-method})
    (depot/deactivate-user depot user-id depot-opts))
-  ([depot user-id]
-   (deactivate-user-by-id! depot user-id nil)))
+  ([depot user-id deactivation-method]
+   (deactivate-user-by-id! depot user-id deactivation-method nil)))
 
 (defn check-nickname-and-password
   "Check a user's `nickname` and `password` for validity.
@@ -56,3 +58,9 @@
           auth-entry (authn/create-password-hashed-authn-entry password id :mushin.db/users)]
       {:user user-doc
        :db-result (depot/insert-local-user depot user-doc auth-entry depot-opts)})))
+
+(defn create-custom-data
+  ([depot owner-id label category value depot-opts]
+   (depot/upsert-custom depot (custom/create-custom owner-id label category value) depot-opts))
+  ([depot owner-id label category value]
+   (create-custom-data depot owner-id label category value {})))

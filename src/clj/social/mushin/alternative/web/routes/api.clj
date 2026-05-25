@@ -1,9 +1,10 @@
 (ns social.mushin.alternative.web.routes.api
   (:require [social.mushin.alternative.web.auth-utils :refer [failed-auth! check-basic-auth! remember-me-cookie]]
-            [social.mushin.alternative.db.remember-me :as remember-me]
+            [social.mushin.alternative.db.authentication :as authn]
             [clojure.tools.logging :as log]
             [social.mushin.alternative.uri :refer [join]]
             [clojure.string :as cstr]
+            [social.mushin.alternative.db.custom :as custom]
             [social.mushin.alternative.web.middleware.exception :as exception]
             [social.mushin.alternative.web.middleware.formats :as formats]
             [social.mushin.alternative.web.middleware.decode :as decode]
@@ -79,17 +80,19 @@
                    (if-let [selector-validator (cstr/split cookie-value #":")]
                      (if (= (count selector-validator) 2)
                        (if-let [cookie
-                                (depot/recall-session depot (first selector-validator) (second selector-validator))]
+                                (depot/recall-session depot (first selector-validator) (second selector-validator) {})]
                          ;; Recall-user destroyed their last token, so we must allocate them a new one.
                          ;;
-                         (let [{:keys [user-id xt/id]} cookie
-                               {:keys [selector validator doc valid-for]} (remember-me/remember-user user-id)]
+                         (let [{:keys [user-id]} cookie
+                               valid-during (time/duration 30 :days)
+                               {:keys [selector validator doc]}
+                               (authn/remember-user user-id valid-during)]
                            (log/info "Allocating new session" {:event :user-logged-in :user-id user-id :method :remember-me})
             
-                           (depot/update-session depot doc id)
+                           (depot/insert-session depot doc {})
                            (->  (ok {:message "Logged in"})
                                 (assoc :session (assoc session :user-id user-id))
-                                (remember-me-cookie selector validator valid-for)))
+                                (remember-me-cookie selector validator valid-during)))
                          (unauthorized! {:error :invalid-remember-me :message "Your remember me cookie is invalid"}))
                        (unauthorized! {:error :invalid-remember-me :message "Your remember me cookie is invalid"}))
                      (unauthorized! {:error :invalid-remember-me :message "Your remember me cookie is invalid"}))
@@ -108,13 +111,14 @@
                        user-id (if (utils/icase-comp auth-type "Basic")
                                  (check-basic-auth! depot auth-arg)
                                  (bad-request! {:error "invalid_request" :message "Malformed authorization header"}))
-                       {:keys [doc selector validator valid-for]} (remember-me/remember-user user-id)]
+                       valid-during (time/duration 30 :days)
+                       {:keys [doc selector validator]} (authn/remember-user user-id valid-during)]
 
                    (log/info "Successfully logged in user" {:event :logged-in :user-id user-id})
-                   (depot/insert-session depot doc)
+                   (depot/insert-session depot doc {})
                    (-> (ok {:message "Logged in"})
                        (assoc :session (assoc session :user-id user-id))
-                       (remember-me-cookie selector validator valid-for))))
+                       (remember-me-cookie selector validator valid-during))))
                opts)}}]
      ["/bye-bye"
       {:post {:handler
@@ -126,9 +130,7 @@
                    ;; Delete any remember-me cookies that were submitted.
                    (when-let [selector-validator (cstr/split cookie-value #":")]
                      (when (= (count selector-validator) 2)
-                       (when-let [{:keys [xt/id]}
-                                  (depot/recall-session depot (first selector-validator) (second selector-validator))]
-                         (depot/delete-session depot id)))))
+                       (depot/delete-session depot (first selector-validator) (second selector-validator) {}))))
                  (-> (ok {:message "Logged out"})
                      (assoc :session (dissoc session :user-id))
                      (remember-me-cookie)))
@@ -146,6 +148,23 @@
                   (not-found {:user-id user-id})))
               opts)}}]
 
+     ["/custom-data"
+      ["/create-custom"
+       {:post {:handler (create-restful-controller
+                         (fn [{:keys [depot]}
+                              {{:keys [user-id]} :session {{:keys [label category value]} :body} :parameters}]
+                           )
+                         opts)
+               :parameters {:body [:map
+                                   [:label    custom/label-string-schema]
+                                   [:category custom/label-string-schema]
+                                   [:value    :string]]}}}]
+      #_["/get-by-label"
+       {:get {}}]
+
+      #_["/delete-custom"
+       {:delete {}}]]
+
      ["/delete-me"
       {:delete {:handler
                 (create-restful-controller
@@ -155,7 +174,7 @@
                      (if (uuid? credential-check-result)
                        (if (= credential-check-result user-id)
                          (do
-                           (app-users/deactivate-user-by-id! depot user-id)
+                           (app-users/deactivate-user-by-id! depot user-id :user-self-delete)
                            (no-content))
                          (unauthorized {:resource-type :user
                                         :user-id user-id}))

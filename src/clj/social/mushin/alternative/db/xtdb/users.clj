@@ -1,6 +1,6 @@
 (ns social.mushin.alternative.db.xtdb.users
   (:require [xtdb.api :as xt]
-            [social.mushin.alternative.db.xtdb.util :refer [assert-not-exists-tx]]
+            [social.mushin.alternative.db.xtdb.util :refer [assert-not-exists-tx delete-where erase-where]]
             [social.mushin.alternative.db.authentication :as authn]
             [social.mushin.alternative.db.users :as base-users]))
 
@@ -63,7 +63,22 @@
 (defn deactivate-user-tx
   "Create a xtdb transaction part for deleting a user."
   [user-id]
-  [[:patch-docs :mushin.db/users (base-users/create-user-tombstone user-id)]])
+  [;; Delete all the customs.
+   (delete-where
+    :mushin.db/custom
+    (xt/template
+     (fn [user-id]
+       (from :mushin.db/custom [{:owner-id user-id}])))
+    user-id)
+   ;; Delete all the authentications.
+   (erase-where
+    :mushin.db/authn
+    (xt/template
+     (fn [user-id]
+       (from :mushin.db/authn [{:for-id user-id :for-type :mushin.db/users}])))
+    user-id)
+   ;; TODO tombstone all their posts.
+   [:patch-docs :mushin.db/users (base-users/create-user-tombstone user-id)]])
 
 (defn get-user-id-by-nickname
   "Query the database for the user's id with `nickname`."

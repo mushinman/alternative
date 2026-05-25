@@ -2,16 +2,15 @@
   (:require [integrant.core :as ig]
             [clojure.tools.logging :as log]
             [social.mushin.alternative.utils :as ig-utils]
-            [social.mushin.alternative.db.xtdb.util :as db]
-            [social.mushin.alternative.db.remember-me :as db-tokens]))
+            [social.mushin.alternative.application.depot :as depot]))
 
 (defmethod ig/init-key :social.mushin.alternative.db.tasks/tasks [_ {:keys [depot]}]
   (log/info "Initializing db tasks...")
   (reify org.quartz.Job
     (execute [_this _]
       (log/info "Starting db tasks...")
-      (log/info "Purging the db of old keys.")
-      #_(db/submit-tx xtdb-node [db-tokens/purge-invalid-tokens-query])
+      (log/info "Purging the db of expired session.")
+      (depot/delete-expired-session depot {})
       (log/info "End db taskss."))))
 
 (defmethod ig/suspend-key! :social.mushin.alternative.db.tasks/tasks [_ _]

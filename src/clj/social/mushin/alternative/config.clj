@@ -6,14 +6,13 @@
    [malli.core :as mallc]
    [malli.experimental.time :as malt]
    [social.mushin.alternative.db.users :as users]
-   [social.mushin.alternative.db.remember-me :as remember-me]
    [social.mushin.alternative.db.statuses :as statuses]
    [social.mushin.alternative.db.resource-meta :as res-meta]
+   [social.mushin.alternative.db.custom :as custom]
    [social.mushin.alternative.db.audit-log :as audit-log]
    [integrant.core :as ig]
    [social.mushin.alternative.db.authorization :as authz]
-   [social.mushin.alternative.db.authentication :as authn]
-   [social.mushin.alternative.db.custom :as custom]))
+   [social.mushin.alternative.db.authentication :as authn]))
 
 
 ;; These ig functions come from https://github.com/kit-clj/kit/blob/bf96b3e5c07e87862416a5990cbc8d480394f754/libs/kit-core/src/kit/config.clj#L8
@@ -39,7 +38,7 @@
 (defn init-db-malli!
   "Adds database schemas to the malli registry."
   []
-  (let [all-schemas (merge users/user-schema statuses/statuses-schema remember-me/remember-me
+  (let [all-schemas (merge users/user-schema statuses/statuses-schema
                            res-meta/resource-meta-schema audit-log/audit-log-schema
                            authz/authorization-role-schema authz/authorization-user-role-schema
                            custom/custom-schema authn/authn-schema)]

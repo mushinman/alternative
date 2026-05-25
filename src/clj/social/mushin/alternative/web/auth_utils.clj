@@ -7,8 +7,6 @@
             [social.mushin.alternative.application.depot :as depot]))
 
 
-;; TODO There will eventually be two realms at least: Admin Visible and User Visible
-
 (defn remember-me-cookie
   [response & [selector validator valid-for]]
   (let [value (if (and selector validator)

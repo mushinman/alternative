@@ -6,8 +6,9 @@
             [social.mushin.alternative.errors :as err]
             [xtdb.node :as xt-node]
             [social.mushin.alternative.utils :refer [icase-comp]]
-            [social.mushin.alternative.db.xtdb.remember-me :as rm]
+            [social.mushin.alternative.db.xtdb.authentication :as authn]
             [social.mushin.alternative.db.cache :as db-cache]
+            [social.mushin.alternative.db.xtdb.custom :as custom]
             [social.mushin.alternative.db.xtdb.statuses :as statuses]
             [social.mushin.alternative.db.resource-meta :as res-meta]
             [social.mushin.alternative.db.xtdb.resource-meta :as xt-res-meta]
@@ -128,25 +129,25 @@
   Depot
   (db-time [_ opts] (db-util/db-time db-con opts))
 
-  (-delete-expired-session
+  (delete-expired-session
     [_ opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [rm/purge-invalid-tokens-query-tx] opts))})
+    {:tx (wrap-db-q-or-tx (transact db-con [authn/purge-invalid-tokens-query-tx] opts))})
 
-  (-delete-all-session
+  (delete-all-session
     [_ opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [rm/forget-everybody-tx] opts))})
+    {:tx (wrap-db-q-or-tx (transact db-con [authn/forget-everybody-tx] opts))})
 
-  (-insert-session [_ session opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (rm/create-insert-session-tx session) opts))})
+  (insert-session [_ session opts]
+    {:tx (wrap-db-q-or-tx (transact db-con (authn/create-insert-session-tx session) opts))})
 
-  (-update-session [_ session old-session-id opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (rm/update-session-tx session old-session-id) opts))})
+  (delete-session [_ selector validator opts]
+     (if-let [{:keys [xt/id] :as _} (wrap-db-q-or-tx (authn/recall-user db-con selector validator true opts))]
+       {:tx (wrap-db-q-or-tx (transact db-con [[:erase-docs :mushin.db/authn id]] opts))
+        :ids [id]}
+       {}))
 
-  (-delete-session [_ session-id opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [(rm/erase-session-tx session-id)] opts))})
-
-  (-recall-session [_ selector validator opts]
-    (wrap-db-q-or-tx (rm/recall-user db-con selector validator opts)))
+  (recall-session [_ selector validator opts]
+    (wrap-db-q-or-tx (authn/recall-user db-con selector validator false opts)))
 
   (-check-nickname-and-password [_ nickname password opts]
     (wrap-db-q-or-tx (users/can-login? db-con nickname password opts)))
@@ -170,6 +171,15 @@
           doc (res-meta/create-resource-meta-doc name location-uri mime-type)]
       {:tx (wrap-db-q-or-tx (transact db-con (xt-res-meta/insert-resource-tx doc) opts))
        :doc doc}))
+
+  (upsert-custom [_ custom opts]
+    {:tx (wrap-db-q-or-tx (transact db-con (custom/upsert-custom-tx custom) opts))})
+
+  (delete-custom [_ label category owner-id opts]
+    {:tx (wrap-db-q-or-tx (transact db-con [(custom/delete-custom-tx-part label category owner-id)] opts))})
+
+  (get-custom-by-label [_ label category owner-id opts]
+    (wrap-db-q-or-tx (custom/get-custom-by-label label category owner-id opts)))
 
   (-get-resource-metadata-by-id [_ id opts]
     (wrap-db-q-or-tx (xt-res-meta/get-resource-by-id db-con id opts)))

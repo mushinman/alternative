@@ -29,23 +29,25 @@
   |:-------|:-----|:-------------------------------------------|
   | `:ids` | Any  | The document ids transacted on             |
   | `:tx`  | Any  | The database implementation's return value |
+  If no transaction was made (e.g. because the depot could not find any documents to delete)
+  then `:tx` and `:ids` may be absent.
   "
   ;; Misc.
   (db-time [d opts] "Returns the current time on the database.")
 
-  ;; Session state.
-  (-delete-expired-session [d opts] "Clean up expired session state.")
-  (-delete-all-session [d opts] "Clear all session state.")
-  (-delete-session [d session-id opts] "Delete a session by its `session-id`.")
-  (-insert-session [d session opts] "Commit a session to long term `session` memory.
-Delete any sessions that conflict with `session`.")
-  (-update-session [d session old-session-id opts] "Delete session with id `session-id` if it exists,
-and commit `session` to session state.")
-  (-recall-session [d selector validator opts] "Get the session that matches `selector` and `validator`.")
+  ;; Authentication.
+  (delete-expired-session [d opts] "Clean up expired session state.")
+  (delete-all-session [d opts] "Clear all session state.")
+  (recall-session [d selector validator opts] "Get the session that matches `selector` and `validator`.")
+
+  (delete-session [d selector validator opts]
+    "Delete a session by its `selector` and `validator`.")
+  (insert-session [d session opts]
+    "Commit a session to long term `session` memory. Delete any sessions that conflict with `session`.")
 
   ;; User.
-  (-check-nickname-and-password [d nickname password opts] "Check a user's `nickname` and `password` for validity.
-Returns true if the `password` is correct for `nickname`, otherwise false.")
+  (-check-nickname-and-password [d nickname password opts]
+    "Check a user's `nickname` and `password` for validity. Returns true if the `password` is correct for `nickname`, otherwise false.")
   (insert-local-user [d user auth opts] "Insert `user` and `auth`. Fails if a user with the same nickname already exists.")
   (-deactivate-user [d id opts] "Deactivate a user with `id`. Action is a no-op if such a user does not exist.")
   (-search-user [d search-term opts] "Search for a user with a string `search-term`.")
@@ -60,6 +62,12 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   ;; Statuses.
   (insert-status [d status opts] "Insert `status`.")
 
+  ;; Custom.
+  (upsert-custom [d custom opts] "Upsert a custom object.")
+  (delete-custom [d label category owner-id opts]
+    "Delete a custom object by its `label`, `category`, and `owner-id`.")
+  (get-custom-by-label [d label category owner-id opts]
+    "Get a custom object by its `label`, `category` and `owner-id`, or `nil` if no such document exists.")
 
   ;; Resource meta.
   (-insert-resource [d resource-data mime-type opts]
@@ -76,36 +84,6 @@ Returns true if the `password` is correct for `nickname`, otherwise false.")
   See `Depot` for further explanation."
   ([d nickname password opts] (-check-nickname-and-password d nickname password opts))
   ([d nickname password] (check-nickname-and-password d nickname password {})))
-
-(defn insert-session
-  "Commit a session to long term `session` memory.
-  Delete any sessions that conflict with `session`.
-
-  See `Depot` for further explanation."
-  ([d session opts] (-insert-session d session opts))
-  ([d session] (insert-session d session {})))
-
-(defn update-session
-  "Delete session with id `session-id` if it exists,
-  and commit `session` to session state.
-
-  See `Depot` for further explanation."
-  ([d session session-id opts] (-update-session d session session-id opts))
-  ([d session session-id] (update-session d session session-id {})))
-
-(defn recall-session
-  "Get the session that matches `selector` and `validator`.
-
-  See `Depot` for further explanation."
-  ([d selector validator opts] (-recall-session d selector validator opts))
-  ([d selector validator] (recall-session d selector validator {})))
-
-(defn delete-session
-  "Delete a session by its `session-id`.
-
-  See `Depot` for further explanation."
-  ([d session-id opts] (-delete-session d session-id opts))
-  ([d session-id] (delete-session d session-id {})))
 
 (defn deactivate-user
   "Delete the user with id `user-id`.
