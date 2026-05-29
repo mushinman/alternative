@@ -148,22 +148,37 @@
                   (not-found {:user-id user-id})))
               opts)}}]
 
-     ["/custom-data"
-      ["/create-custom"
-       {:post {:handler (create-restful-controller
-                         (fn [{:keys [depot]}
-                              {{:keys [user-id]} :session {{:keys [label category value]} :body} :parameters}]
-                           )
-                         opts)
-               :parameters {:body [:map
-                                   [:label    custom/label-string-schema]
-                                   [:category custom/label-string-schema]
-                                   [:value    :string]]}}}]
-      #_["/get-by-label"
-       {:get {}}]
-
-      #_["/delete-custom"
-       {:delete {}}]]
+     ["/custom-data/:label"
+      ["/d/:category"
+       {:get {:handler (create-restful-controller
+                        (fn [{:keys [depot]}
+                             {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                          (if-let [result (depot/get-custom-by-label depot user-id label category {})]
+                            (ok result)
+                            (not-found {:label label :category category})))
+                        opts)
+              :parameters {:path [:map
+                                  [:label custom/label-string-schema]
+                                  [:category custom/label-string-schema]]}}
+        :put {:handler (create-restful-controller
+                        (fn [{:keys [depot]}
+                             {{:keys [user-id]} :session {:keys [body] {:keys [label category]} :path} :parameters}]
+                          (depot/upsert-custom depot (custom/create-custom user-id label category body) {})
+                          (ok {}))
+                        opts)
+              :parameters {:body [:string]
+                           :path [:map
+                                  [:label custom/label-string-schema]
+                                  [:category custom/label-string-schema]]}}
+        :delete {:handler (create-restful-controller
+                           (fn [{:keys [depot]}
+                                {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                             (depot/delete-custom depot user-id label category {})
+                             (no-content))
+                           opts)
+                 :parameters {:path [:map
+                                     [:label custom/label-string-schema]
+                                     [:category custom/label-string-schema]]}}}]]
 
      ["/delete-me"
       {:delete {:handler

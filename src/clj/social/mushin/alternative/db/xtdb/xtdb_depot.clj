@@ -175,10 +175,10 @@
   (upsert-custom [_ custom opts]
     {:tx (wrap-db-q-or-tx (transact db-con (custom/upsert-custom-tx custom) opts))})
 
-  (delete-custom [_ label category owner-id opts]
+  (delete-custom [_ owner-id label category opts]
     {:tx (wrap-db-q-or-tx (transact db-con [(custom/delete-custom-tx-part label category owner-id)] opts))})
 
-  (get-custom-by-label [_ label category owner-id opts]
+  (get-custom-by-label [_ owner-id label category opts]
     (wrap-db-q-or-tx (custom/get-custom-by-label label category owner-id opts)))
 
   (-get-resource-metadata-by-id [_ id opts]

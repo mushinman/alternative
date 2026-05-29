@@ -64,9 +64,9 @@
 
   ;; Custom.
   (upsert-custom [d custom opts] "Upsert a custom object.")
-  (delete-custom [d label category owner-id opts]
+  (delete-custom [d owner-id label category opts]
     "Delete a custom object by its `label`, `category`, and `owner-id`.")
-  (get-custom-by-label [d label category owner-id opts]
+  (get-custom-by-label [d owner-id label category opts]
     "Get a custom object by its `label`, `category` and `owner-id`, or `nil` if no such document exists.")
 
   ;; Resource meta.
