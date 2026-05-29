@@ -4,7 +4,8 @@
             [clojure.tools.logging :as log]
             [social.mushin.alternative.uri :refer [join]]
             [clojure.string :as cstr]
-            [social.mushin.alternative.db.custom :as custom]
+            [social.mushin.alternative.application.custom :as custom]
+            [social.mushin.alternative.db.custom :as db-custom]
             [social.mushin.alternative.web.middleware.exception :as exception]
             [social.mushin.alternative.web.middleware.formats :as formats]
             [social.mushin.alternative.web.middleware.decode :as decode]
@@ -150,35 +151,33 @@
 
      ["/custom-data/:label"
       ["/d/:category"
-       {:get {:handler (create-restful-controller
-                        (fn [{:keys [depot]}
-                             {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
-                          (if-let [result (depot/get-custom-by-label depot user-id label category {})]
-                            (ok result)
-                            (not-found {:label label :category category})))
-                        opts)
-              :parameters {:path [:map
-                                  [:label custom/label-string-schema]
-                                  [:category custom/label-string-schema]]}}
-        :put {:handler (create-restful-controller
-                        (fn [{:keys [depot]}
-                             {{:keys [user-id]} :session {:keys [body] {:keys [label category]} :path} :parameters}]
-                          (depot/upsert-custom depot (custom/create-custom user-id label category body) {})
-                          (ok {}))
-                        opts)
-              :parameters {:body [:string]
-                           :path [:map
-                                  [:label custom/label-string-schema]
-                                  [:category custom/label-string-schema]]}}
-        :delete {:handler (create-restful-controller
-                           (fn [{:keys [depot]}
-                                {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
-                             (depot/delete-custom depot user-id label category {})
-                             (no-content))
-                           opts)
-                 :parameters {:path [:map
-                                     [:label custom/label-string-schema]
-                                     [:category custom/label-string-schema]]}}}]]
+       (let [path-params-schema
+             [:map
+              [:label db-custom/label-string-schema]
+              [:category db-custom/label-string-schema]]]
+         {:get {:handler (create-restful-controller
+                          (fn [{:keys [depot]}
+                               {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                            (if-let [result (custom/get-custom depot user-id user-id label category)]
+                              (ok result)
+                              (not-found {:label label :category category})))
+                          opts)
+                :parameters {:path path-params-schema}}
+          :put {:handler (create-restful-controller
+                          (fn [{:keys [depot]}
+                               {{:keys [user-id]} :session {:keys [body] {:keys [label category]} :path} :parameters}]
+                            (custom/upsert-custom depot user-id user-id label category body)
+                            (ok {}))
+                          opts)
+                :parameters {:body [:string]
+                             :path path-params-schema}}
+          :delete {:handler (create-restful-controller
+                             (fn [{:keys [depot]}
+                                  {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                               (custom/delete-custom depot user-id user-id label category)
+                               (no-content))
+                             opts)
+                   :parameters {:path path-params-schema}}})]]
 
      ["/delete-me"
       {:delete {:handler
@@ -246,7 +245,41 @@
                                   [:password [:string {:min 8 :max 128}]]
                                   [:avatar  {:description "mulitpart file" :optional true} :any]
                                   [:banner  {:description "mulitpart file" :optional true} :any]
-                                  [:nickname users/nickname-schema]]}}}]]]])
+                                  [:nickname users/nickname-schema]]}}}]]
+
+    ["/admin"
+     ["/custom-data/:id-or-nickname"
+      ["/l"
+       ["/:label"
+        ["/d/:category"
+         (let [path-params-schema
+               [:map
+                [:id-or-nickname [:or :uuid users/nickname-schema]]
+                [:label db-custom/label-string-schema]
+                [:category db-custom/label-string-schema]]]
+           {:get {:handler (create-restful-controller
+                            (fn [{:keys [depot]}
+                                 {{:keys [user-id]} :session {{:keys [id-or-nickname label category]} :path} :parameters}]
+                              (if-let [result (custom/get-custom depot id-or-nickname user-id label category)]
+                                (ok result)
+                                (not-found {:label label :category category})))
+                            opts)
+                  :parameters {:path path-params-schema}}
+            :put {:handler (create-restful-controller
+                            (fn [{:keys [depot]}
+                                 {{:keys [user-id]} :session {:keys [body] {:keys [id-or-nickname label category]} :path} :parameters}]
+                              (custom/upsert-custom depot id-or-nickname user-id label category body)
+                              (ok {}))
+                            opts)
+                  :parameters {:body [:string]
+                               :path path-params-schema}}
+            :delete {:handler (create-restful-controller
+                               (fn [{:keys [depot]}
+                                    {{:keys [user-id]} :session {{:keys [id-or-nickname label category]} :path} :parameters}]
+                                 (custom/delete-custom depot id-or-nickname user-id label category)
+                                 (no-content))
+                               opts)
+                     :parameters {:path path-params-schema}}})]]]]]]])
 
 (derive :reitit.routes/api :reitit/routes)
 
