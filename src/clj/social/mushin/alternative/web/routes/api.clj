@@ -149,6 +149,31 @@
                   (not-found {:user-id user-id})))
               opts)}}]
 
+     ["/rel"
+      ["/follow"
+       ["/s"
+        {:get {:handler (create-restful-controller
+                         (fn [{:keys [depot]}
+                              {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                           )
+                         opts)}}]
+       ["/u/:id"
+        {:get {:handler (create-restful-controller
+                         (fn [{:keys [depot]}
+                              {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                           )
+                         opts)}
+         :delete {:handler (create-restful-controller
+                         (fn [{:keys [depot]}
+                              {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                           )
+                         opts)}
+         :put {:handler (create-restful-controller
+                         (fn [{:keys [depot]}
+                              {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                           )
+                         opts)}}]]]
+
      ["/custom-data/:label"
       ["/d/:category"
        (let [path-params-schema

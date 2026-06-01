@@ -1,8 +1,7 @@
 (ns social.mushin.alternative.db.xtdb.xtdb-depot
   (:require [social.mushin.alternative.application.depot :refer [Depot]]
-            [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx] :as db-util]
+            [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx compose-txs] :as db-util]
             [social.mushin.alternative.resources.bucket :as bucket]
-            [clojure.core.cache.wrapped :as cw]
             [social.mushin.alternative.errors :as err]
             [xtdb.node :as xt-node]
             [social.mushin.alternative.utils :refer [icase-comp]]
@@ -12,6 +11,7 @@
             [social.mushin.alternative.db.xtdb.statuses :as statuses]
             [social.mushin.alternative.db.resource-meta :as res-meta]
             [social.mushin.alternative.db.xtdb.resource-meta :as xt-res-meta]
+            [social.mushin.alternative.db.xtdb.relationship :as rel]
             [social.mushin.alternative.db.xtdb.users :as users])
   (:import [xtdb.error Conflict Anomaly Busy Conflict Fault Forbidden Incorrect
             Interrupted NotFound Unavailable Unsupported]
@@ -25,9 +25,10 @@
 (defn- transact
   [db-con tx {:keys [async? db-opts]
               :or {db-opts {}}}]
-  (if async?
-    (submit-tx db-con tx db-opts)
-    (execute-tx db-con tx db-opts)))
+  (let [tx (compose-txs tx)]
+    (if async?
+      (submit-tx db-con tx db-opts)
+      (execute-tx db-con tx db-opts))))
 
 (defmacro wrap-db-q-or-tx
   "Wrap any database exceptions thrown by `form`, converting them into an internal format."
@@ -164,6 +165,18 @@
 
   (insert-status [_ status opts]
     {:tx (wrap-db-q-or-tx (transact db-con (statuses/insert-status-tx status) opts))})
+
+  ;; Relationships.
+  (get-relationships-for-actor [_ actor-id rel-type-or-types opts]
+    (rel/get-relationships-for-actor db-con actor-id (if (keyword? rel-type-or-types) [rel-type-or-types] rel-type-or-types) opts))
+  (get-relationships-for-object [_ object-id rel-type-or-types opts]
+    (rel/get-relationships-for-object db-con object-id (if (keyword? rel-type-or-types) [rel-type-or-types] rel-type-or-types) opts))
+  (get-relationship [_ actor-id object-key rel-type opts]
+    (rel/get-relationship-between actor-id object-key rel-type opts))
+  (create-relationship [_ rel opts]
+    {:tx (wrap-db-q-or-tx (transact db-con (rel/insert-rel-tx rel) opts))})
+  (delete-relationship [_ actor-id object-id rel-type opts]
+    {:tx (wrap-db-q-or-tx (transact db-con (rel/delete-rel-tx actor-id object-id rel-type) opts))})
 
   ;; TODO if the second step fails, maybe undo the first step?
   (-insert-resource [_ resource-data mime-type opts]

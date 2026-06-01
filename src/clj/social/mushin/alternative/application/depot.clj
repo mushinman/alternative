@@ -59,6 +59,20 @@
 - `:full`: Return both the user's display and actor data")
   (user-exists? [d id-or-nickname opts] "Return true if the user with `id-or-nickname` exists, false if not.")
 
+  ;; Relationships.
+  (get-relationships-for-actor [d actor-id rel-types opts]
+    "Get relationships for `actor-id`. `rel-types` is either a keyword or tuple of keywords in
+`:follow`, `:mute`, `:block`, `:react`.")
+  (get-relationships-for-object [d object-id relt-types opts]
+    "Get relationships for `object-id`. `rels` is either a keyword or tuple of keywords in
+`:follow`, `:mute`, `:block`, `:react`.")
+  (get-relationship [d actor-id object-id rel-type opts]
+    "Get a relationship according to its `actor-id`, `object-id`, `rel-type`; or `nil` if no relationship exists.")
+  (create-relationship [d rel opts]
+    "Upsert `rel` according to the identity of the relationship (i.e. the `actor-id`, `object-id`, and `type`).")
+  (delete-relationship [d actor-id object-id rel-type opts]
+    "Delete a relationship according to its `actor-id`, `object-id`, and `rel-type`.")
+
   ;; Statuses.
   (insert-status [d status opts] "Insert `status`.")
 

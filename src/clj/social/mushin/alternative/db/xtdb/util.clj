@@ -3,33 +3,11 @@
 
 (ns social.mushin.alternative.db.xtdb.util
   (:require [malli.core :as malli]
-            [clj-uuid :as uuid]
             [honey.sql.helpers :as h]
             [honey.sql :as sql]
             [xtdb.api :as xt])
   (:import [xtdb.api Xtdb]))
 
-
-(defn query-bind
-  "Create a BindSpec with optional for-valid-time and for-system-time."
-  [bindings valid-for system-valid-for]
-  (cond-> {:bind bindings}
-    valid-for
-    (assoc :for-valid-time (let [[type date1 date2] valid-for]
-                             (case type
-                               :at (xt/template (at ~date1))
-                               :from (xt/template (from ~date1))
-                               :to (xt/template  (to ~date1))
-                               :in (xt/template  (in ~date1 ~date2))
-                               :all-time :all-time)))
-    system-valid-for
-    (assoc :for-system-time (let [[type date1 date2] system-valid-for]
-                              (case type
-                                :at (xt/template (at ~date1))
-                                :from (xt/template (from ~date1))
-                                :to (xt/template  (to ~date1))
-                                :in (xt/template (in ~date1 ~date2))
-                                :all-time :all-time)))))
 
 (def ^:private xtdb-node?
   [:fn #(instance? Xtdb %)])
@@ -59,43 +37,6 @@
   (check-arity (even? (count kvs)) (+ (count kvs) 2) fn-name)
   (check-args node xtdb-node? table :keyword))
 
-(defn lookup-by-id
-  ([node table cols id]
-   (first (xt/q node (xt/template (-> (from ~table [~@cols {:xt/id ~id}])
-                                      (limit 1))))))
-  ([node table id]
-   (lookup-by-id node table '[*] id)))
-
-(defn lookup-id [node table qs]
-  (-> (xt/q node (xt/template (-> (from ~table [xt/id ~qs])
-                                  (limit 1))))
-      first
-      :xt/id))
-
-(defn lookup-by-ids [db-con table ids cols]
-  (xt/q db-con [(xt/template (fn [ids]
-                               (unify (unnest {id ids})
-                                      (from table [~@cols {:xt/id id}]))))
-                ids]))
-
-(defn lookup-ids
-  [node table qs]
-  (map :xt/id (xt/q node
-                    (xt/template (from ~table [xt/id ~qs])))))
-
-(defn lookup-everything [node table]
-  (xt/q node (xt/template (from ~table [*]))))
-
-(defn lookup [node table cols qs]
-  (xt/q node (xt/template (from ~table [~@cols ~qs]))))
-
-(defn lookup-first
-  ([node table cols qs]
-   (first (xt/q node (xt/template (-> (from ~table [~@cols ~qs])
-                                      (limit 1))))))
-  ([node table qs]
-   (lookup-first node table '[*] qs)))
-
 (defn check-attr-schema [attr schema value]
   (when-not (malli/validate schema value)
     (throw (ex-info "Value doesn't match attribute schema"
@@ -113,30 +54,6 @@
 
 (defn -malli-wrap [{:keys [value message] :as error}]
   (str "Invalid argument `" (pr-str value) "`: " message))
-
-(defn record-exists-q?
-  [node table qs]
-  (->
-   (xt/q
-    node
-    (xt/template
-     (-> (from ~table [~qs])
-         (limit 1)
-         (return {:result true}))))
-   not-empty
-   boolean))
-
-(defn record-exists?
-  [node table id]
-  (->
-   (xt/q node [(xt/template
-                (fn [id]
-                  (-> (from ~table [{:xt/id id}])
-                      (limit 1)
-                      (return {:result true}))))
-               id])
-   not-empty
-   boolean))
 
 (defn erase-where
   "Create a SQL transaction from a XTQL query that erases all the documents returned by the query.
@@ -165,22 +82,14 @@
   (let [[q & ps] (sql/format {:assert [:not-exists (into [:xtql query] args)]})]
     (into [q] ps)))
 
+(defn assert-exists-tx
+  "Assert that no row matches the xtql `query`.
 
-(defn insert-unless-exists-tx
-  "Create a transaction for inserting document into a table unless that table already contains a duplicate document.
-  When transactioned will throw a `xtdb.error.Conflict` if the check fails.
+  When transacted, if the ASSERTion fails, the whole transaction will be aborted."
+  [query & args]
+  (let [[q & ps] (sql/format {:assert [:exists (into [:xtql query] args)]})]
+    (into [q] ps)))
 
-  # Arguments
-   - `table`: The name of the table to insert into.
-   - `doc`: The document to submit.
-   - `columns`: A vector of columns used to check if the document already exists.
-
-  # Return value
-  A vector of XTDB transactions."
-  [table doc columns]
-  ;; This is kinda ugly but so far as I know this is only way to do this.
-  [;(assert-not-exists-tx table (select-keys doc columns))
-   [:put-docs table doc]])
 
 (defn compile-op-dispatch [node op]
   (first op))
@@ -199,6 +108,7 @@
 ;; TODO this is bad. We should just check to see if the document exists
 ;; and reject tx if it's an insert. If it's an update, we'll check against the schema
 ;; but ignore missing parts of the doc.
+;; Alternatively, I could just turn off schema checking for release mode...
 (defmethod compile-op :patch-docs
   [node [_ table-or-opts & docs :as op]]
   ;; If the patch operation is an UPDATE: we can be sure that the document
@@ -209,12 +119,12 @@
                 (:into table-or-opts)
                 table-or-opts)]
     (doseq [doc docs]
-      (let [cur-doc (lookup-by-id node table (:xt/id doc))
+      (let [cur-doc 
+            (first (xt/q node (xt/template (-> (from ~table [* {:xt/id ~id}])
+                                               (limit 1)))))
             new-doc (if cur-doc
                       (merge cur-doc doc)
-                      (if (:xt/id doc)
-                        doc
-                        (merge {:xt/id (uuid/v7)} doc)))]
+                      doc)]
         (check-table-schema table new-doc)))
     [op]))
 
@@ -264,36 +174,6 @@
          (remove nil?)
          cat)
    txs))
-
-(defn compose-and-submit-txs!
-  "Combine XTDB transaction vectors  into a single transaction and execute.
-
-  # Arguments
-   - `con`: XTDB connection
-   - `txs`: Each argument can be a single statement (e.g.
-  `[:put-docs :mushin.db/users {:xt/id (random-uuid)}]`) or a vector of statements
-  (e.g. [[:put-docs :mushin.db/users {:xt/id (random-uuid)}] [:sql 'DELETE FROM likes']]),
-  or nil.
-
-  # Return value
-  See `submit-tx`."
-  [con txs]
-  (submit-tx con (apply compose-txs txs)))
-
-(defn compose-and-execute-txs!
-  "Combine XTDB transaction vectors  into a single transaction and execute.
-
-  # Arguments
-   - `con`: XTDB connection
-   - `txs`: Each argument can be a single statement (e.g.
-  `[:put-docs :mushin.db/users {:xt/id (random-uuid)}]`) or a vector of statements
-  (e.g. [[:put-docs :mushin.db/users {:xt/id (random-uuid)}] [:sql 'DELETE FROM likes']]),
-  or nil.
-
-  # Return value
-  See `execute-tx`."
-  [con txs]
-  (execute-tx con (apply compose-txs txs)))
 
 (defn db-time
   "Get the current time on the database."

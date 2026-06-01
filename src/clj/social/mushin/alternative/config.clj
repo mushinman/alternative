@@ -10,6 +10,7 @@
    [social.mushin.alternative.db.resource-meta :as res-meta]
    [social.mushin.alternative.db.custom :as custom]
    [social.mushin.alternative.db.audit-log :as audit-log]
+   [social.mushin.alternative.db.relationship :as rel]
    [integrant.core :as ig]
    [social.mushin.alternative.db.authorization :as authz]
    [social.mushin.alternative.db.authentication :as authn]))
@@ -39,6 +40,7 @@
   "Adds database schemas to the malli registry."
   []
   (let [all-schemas (merge users/user-schema statuses/statuses-schema
+                           rel/relationship-schema
                            res-meta/resource-meta-schema audit-log/audit-log-schema
                            authz/authorization-role-schema authz/authorization-user-role-schema
                            custom/custom-schema authn/authn-schema)]
