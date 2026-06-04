@@ -9,8 +9,8 @@
   (delete-where
    :mushin.db/custom
    (xt/template
-    (fn [label category]
-      (-> (from :mushin.db/custom [{:label label :category category :owner-id owner-id}])
+    (fn [label category owner-id]
+      (-> (from :mushin.db/custom [{:label label :category category :owner-id owner-id :xt/id _id}])
           (limit 1))))
    label category owner-id))
 

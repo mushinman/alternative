@@ -1,7 +1,7 @@
 (ns social.mushin.alternative.db.xtdb.relationship
   (:require [social.mushin.alternative.db.xtdb.util :refer [delete-where assert-exists-tx assert-not-exists-tx]]
-            [xtdb.api :as xt]
-            [social.mushin.alternative.db.relationship :as rel]))
+            [honey.sql :as sql]
+            [xtdb.api :as xt]))
 
 (defn- ensure-user-is-valid-object-tx
   [object-user-id]
@@ -21,7 +21,7 @@
      :mushin.db/rel
      (xt/template
       (fn [actor-id object-id type]
-        (-> (from :mushin.db/rel [object {:actor-id actor-id, :type type, :object-key object-id}])
+        (-> (from :mushin.db/rel [{:actor-id actor-id, :type type, :object-key object-id :xt/id _id}])
             (limit 1))))
      actor-id object-id type)]))
 
@@ -47,7 +47,7 @@
           :mushin.db/rel
           (xt/template
            (fn [actor-id object-id]
-             (-> (from :mushin.db/rel [object {:actor-id object-id, :object-key actor-id, :type :follow}]) 
+             (-> (from :mushin.db/rel [{:actor-id object-id, :object-key actor-id, :type :follow :xt/id _id}])
                  (limit 1))))
           actor-id object-key)]
 

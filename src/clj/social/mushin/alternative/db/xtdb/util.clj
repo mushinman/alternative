@@ -57,27 +57,26 @@
 
 (defn erase-where
   "Create a SQL transaction from a XTQL query that erases all the documents returned by the query.
+   The query must return a single column containing the xt/id of each row to erase.
   `args` is for arguments to the query."
   [table query & args]
-  (sql/format (-> (h/erase-from table)
-                  (h/where
-                   [:exists
-                    (into [:xtql query] args)]))))
+  (sql/format {:erase-from table
+               :where [:in :_id
+                       (into [:xtql query] args)]}))
 
 (defn delete-where
   "Create a SQL transaction from a XTQL query that deletes all the documents returned by the query.
+   The query must return a single column containing the xt/id of each row to delete.
   `args` is for arguments to the query."
   [table query & args]
-  (sql/format (-> (h/delete-from table)
-                  (h/where
-                   [:exists
-                    (into [:xtql query] args)]))))
-
+  (sql/format {:delete-from table
+               :where [:in :_id
+                       (into [:xtql query] args)]}))
 
 (defn assert-not-exists-tx
   "Assert that no row matches the xtql `query`.
 
-  When transacted, if the ASSERTion fails, the whole transaction will be aborted."
+   When transacted, if the ASSERTion fails, the whole transaction will be aborted."
   [query & args]
   (let [[q & ps] (sql/format {:assert [:not-exists (into [:xtql query] args)]})]
     (into [q] ps)))
@@ -85,7 +84,7 @@
 (defn assert-exists-tx
   "Assert that no row matches the xtql `query`.
 
-  When transacted, if the ASSERTion fails, the whole transaction will be aborted."
+   When transacted, if the ASSERTion fails, the whole transaction will be aborted."
   [query & args]
   (let [[q & ps] (sql/format {:assert [:exists (into [:xtql query] args)]})]
     (into [q] ps)))
@@ -120,7 +119,7 @@
                 table-or-opts)]
     (doseq [doc docs]
       (let [cur-doc 
-            (first (xt/q node (xt/template (-> (from ~table [* {:xt/id ~id}])
+            (first (xt/q node (xt/template (-> (from ~table [* {:xt/id ~(:xt/id doc)}])
                                                (limit 1)))))
             new-doc (if cur-doc
                       (merge cur-doc doc)
@@ -158,22 +157,22 @@
 (defn compose-txs
   "Combine XTDB transaction vectors into a single transaction.
 
-  Each argument can be a single statement (e.g.
+   Each argument can be a single statement (e.g.
   `[:put-docs :mushin.db/users {:xt/id (random-uuid)}]`) or a vector of statements
   (e.g. [[:put-docs :mushin.db/users {:xt/id (random-uuid)}] [:sql 'DELETE FROM likes']]),
-  or nil."
+   or nil."
   [& txs]
   (into []
-   (comp (map
-          (fn [tx]
-            (cond
-              (nil? tx) tx
-              (and (vector? tx) (vector? (first tx))) tx
-              (vector? tx) [tx]
-              :else nil)))
-         (remove nil?)
-         cat)
-   txs))
+        (comp (map
+               (fn [tx]
+                 (cond
+                   (nil? tx) tx
+                   (and (vector? tx) (vector? (first tx))) tx
+                   (vector? tx) [tx]
+                   :else nil)))
+              (remove nil?)
+              cat)
+        txs))
 
 (defn db-time
   "Get the current time on the database."

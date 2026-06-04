@@ -68,14 +68,14 @@
     :mushin.db/custom
     (xt/template
      (fn [user-id]
-       (from :mushin.db/custom [{:owner-id user-id}])))
+       (from :mushin.db/custom [{:owner-id user-id :xt/id _id}])))
     user-id)
    ;; Delete all the authentications.
    (erase-where
     :mushin.db/authn
     (xt/template
      (fn [user-id]
-       (from :mushin.db/authn [{:for-id user-id :for-type :mushin.db/users}])))
+       (from :mushin.db/authn [{:for-id user-id :for-type :mushin.db/users :xt/id _id}])))
     user-id)
    ;; TODO tombstone all their posts.
    [:patch-docs :mushin.db/users (base-users/create-user-tombstone user-id)]])

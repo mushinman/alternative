@@ -8,28 +8,30 @@
 
 (def purge-invalid-tokens-query-tx
   "xtdb transaction part to purge all invalid remember-me tokens."
-  [:sql (sql/format
-         (-> (h/erase-from :mushin.db/authn)
-             (h/where
-              [:exists
-               [:xtql (xt/template
-                       (-> (from :mushin.db/authn [payload created-at])
-                           (where (and
-                                   (= (. payload type) :remember-me)
-                                   (> (current-timestamp) (+ (. payload valid-during) created-at))))))]])))])
+  [:sql (first (sql/format
+                (-> (h/erase-from :mushin.db/authn)
+                    (h/where
+                     [:in :_id
+                      [:xtql (xt/template
+                              (-> (from :mushin.db/authn [{:xt/id id} payload created-at])
+                                  (where (and
+                                          (= (. payload type) :remember-me)
+                                          (> (current-timestamp) (+ (. payload valid-during) created-at))))
+                                  (return {:id id})))]]))))])
 
 
 (def forget-everybody-tx
   "xtdb transaction part to purge all tokens."
-  [:sql (sql/format
-         (-> (h/erase-from :mushin.db/authn)
-             (h/where
-              [:exists
-               [:xtql (xt/template
-                       (-> (from :mushin.db/authn [payload created-at])
-                           (where (and
-                                   (= (. payload type) :remember-me)
-                                   (> (current-timestamp) (+ (. payload valid-during) created-at))))))]])))])
+  [:sql (first (sql/format
+                (-> (h/erase-from :mushin.db/authn)
+                    (h/where
+                     [:in :_id
+                      [:xtql (xt/template
+                              (-> (from :mushin.db/authn [{:xt/id id} payload created-at])
+                                  (where (and
+                                          (= (. payload type) :remember-me)
+                                          (> (current-timestamp) (+ (. payload valid-during) created-at))))
+                                  (return {:id id})))]]))))])
 
 
 (defn create-insert-session-tx
@@ -42,9 +44,8 @@
       :mushin.db/authn
       (xt/template
        (fn [for-id for-type]
-         (-> (from :mushin.db/authn [{:for-id for-id :for-type for-type} payload])
-             (where (= (. payload type) :password-hash))
-             (limit 1))))
+         (-> (from :mushin.db/authn [{:for-id for-id :for-type for-type :xt/id _id} payload])
+             (where (= (. payload type) :password-hash)))))
       for-id for-type)
 
      :remember-me
@@ -54,7 +55,7 @@
       :mushin.db/authn
       (xt/template
        (fn [for-id for-type]
-         (-> (from :mushin.db/authn [{:for-id for-id :for-type for-type} payload])
+         (-> (from :mushin.db/authn [{:for-id for-id :for-type for-type :xt/id _id} payload])
              (where (= (. payload type) :remember-me)))))
       for-id for-type))
    [:put-docs :mushin.db/authn doc]])
