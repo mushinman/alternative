@@ -1,18 +1,20 @@
 (ns social.mushin.alternative.db.xtdb.xtdb-depot
-  (:require [social.mushin.alternative.application.depot :refer [Depot]]
-            [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx compose-txs] :as db-util]
+  (:require [social.mushin.alternative.application.depot :refer [Depot] :as depot]
+            [social.mushin.alternative.db.xtdb.util :refer [submit-tx execute-tx] :as db-util]
             [social.mushin.alternative.resources.bucket :as bucket]
             [social.mushin.alternative.errors :as err]
             [xtdb.node :as xt-node]
             [social.mushin.alternative.utils :refer [icase-comp]]
             [social.mushin.alternative.db.xtdb.authentication :as authn]
-            [social.mushin.alternative.db.cache :as db-cache]
+            [social.mushin.alternative.db.xtdb.authorization :as authr]
+            [social.mushin.alternative.db.cache :as db-cache :refer [CacheValueProvider]]
             [social.mushin.alternative.db.xtdb.custom :as custom]
             [social.mushin.alternative.db.xtdb.statuses :as statuses]
             [social.mushin.alternative.db.resource-meta :as res-meta]
             [social.mushin.alternative.db.xtdb.resource-meta :as xt-res-meta]
             [social.mushin.alternative.db.xtdb.relationship :as rel]
-            [social.mushin.alternative.db.xtdb.users :as users])
+            [social.mushin.alternative.db.xtdb.users :as users]
+            [social.mushin.alternative.db.audit-log :as audit-log])
   (:import [xtdb.error Conflict Anomaly Busy Conflict Fault Forbidden Incorrect
             Interrupted NotFound Unavailable Unsupported]
            [xtdb.api.log IngestionStoppedException]
@@ -21,14 +23,6 @@
             SQLTransactionRollbackException]
            [java.io Closeable]))
 
-
-(defn- transact
-  [db-con tx {:keys [async? db-opts]
-              :or {db-opts {}}}]
-  (let [tx (compose-txs tx)]
-    (if async?
-      (submit-tx db-con tx db-opts)
-      (execute-tx db-con tx db-opts))))
 
 (defmacro wrap-db-q-or-tx
   "Wrap any database exceptions thrown by `form`, converting them into an internal format."
@@ -128,24 +122,45 @@
 
 (defrecord ^:private XtdbDepot [db-con resource-map cache]
   Depot
-  (db-time [_ opts] (db-util/db-time db-con opts))
+  (transact [_ tx {:keys [async? db-opts]
+                    :or {db-opts {}}}]
+    (wrap-db-q-or-tx
+     (if async?
+       (submit-tx db-con tx db-opts)
+       (execute-tx db-con tx db-opts))))
+
+  (-compose-txs [_ txs]
+    (apply db-util/compose-txs txs))
+
+  (get-role [_ role-id-or-name opts]
+    (wrap-db-q-or-tx (authr/get-role-by-id-or-name db-con role-id-or-name opts)))
+
+  (upsert-role [_ role _]
+    (authr/upsert-role-tx role))
+
+  (delete-role [_ role-id-or-name _]
+    (authr/delete-role-tx role-id-or-name))
+
+  (insert-audit [_ audit-doc _]
+    [:put-docs :mushin.db/audit-log audit-doc])
+
+  (db-time [_ opts]
+    (wrap-db-q-or-tx (db-util/db-time db-con opts)))
 
   (delete-expired-session
-    [_ opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [authn/purge-invalid-tokens-query-tx] opts))})
+    [_ _]
+    authn/purge-invalid-tokens-query-tx)
 
   (delete-all-session
-    [_ opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [authn/forget-everybody-tx] opts))})
+    [_ _]
+    authn/forget-everybody-tx)
 
-  (insert-session [_ session opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (authn/create-insert-session-tx session) opts))})
+  (insert-session [_ session _]
+    (authn/create-insert-session-tx session))
 
   (delete-session [_ selector validator opts]
-     (if-let [{:keys [xt/id] :as _} (wrap-db-q-or-tx (authn/recall-user db-con selector validator true opts))]
-       {:tx (wrap-db-q-or-tx (transact db-con [[:erase-docs :mushin.db/authn id]] opts))
-        :ids [id]}
-       {}))
+     (when-let [{:keys [xt/id] :as _} (authn/recall-user db-con selector validator true opts)]
+       [:erase-docs :mushin.db/authn id]))
 
   (recall-session [_ selector validator opts]
     (wrap-db-q-or-tx (authn/recall-user db-con selector validator false opts)))
@@ -153,43 +168,42 @@
   (-check-nickname-and-password [_ nickname password opts]
     (wrap-db-q-or-tx (users/can-login? db-con nickname password opts)))
 
-  (-deactivate-user [_ user-id opts]
+  (-deactivate-user [_ user-id ]
     ;; TODO also tombstone all their posts.
-    {:tx (wrap-db-q-or-tx (transact db-con (users/deactivate-user-tx user-id) opts))})
+    (users/deactivate-user-tx user-id))
 
   (-search-user [_ search-term opts]
-    (users/search-user db-con search-term opts))
+    (wrap-db-q-or-tx (users/search-user db-con search-term opts)))
 
-  (insert-local-user [_ user authn opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (users/insert-local-user-tx user authn) opts))})
+  (insert-local-user [_ user authn _]
+    (users/insert-local-user-tx user authn))
 
-  (insert-status [_ status opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (statuses/insert-status-tx status) opts))})
+  (insert-status [_ status _]
+    (statuses/insert-status-tx status))
 
   ;; Relationships.
   (get-relationships-for-actor [_ actor-id rel-type-or-types opts]
-    (rel/get-relationships-for-actor db-con actor-id (if (keyword? rel-type-or-types) [rel-type-or-types] rel-type-or-types) opts))
+    (wrap-db-q-or-tx (rel/get-relationships-for-actor db-con actor-id (if (keyword? rel-type-or-types) [rel-type-or-types] rel-type-or-types) opts)))
   (get-relationships-for-object [_ object-id rel-type-or-types opts]
-    (rel/get-relationships-for-object db-con object-id (if (keyword? rel-type-or-types) [rel-type-or-types] rel-type-or-types) opts))
+    (wrap-db-q-or-tx (rel/get-relationships-for-object db-con object-id (if (keyword? rel-type-or-types) [rel-type-or-types] rel-type-or-types) opts)))
   (get-relationship [_ actor-id object-key rel-type opts]
-    (rel/get-relationship-between actor-id object-key rel-type opts))
-  (create-relationship [_ rel opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (rel/insert-rel-tx rel) opts))})
-  (delete-relationship [_ actor-id object-id rel-type opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (rel/delete-rel-tx actor-id object-id rel-type) opts))})
+    (wrap-db-q-or-tx (rel/get-relationship-between db-con actor-id object-key rel-type opts)))
+  (create-relationship [_ rel _]
+    (rel/insert-rel-tx rel))
+  (delete-relationship [_ actor-id object-id rel-type _]
+    rel/delete-rel-tx actor-id object-id rel-type)
 
   ;; TODO if the second step fails, maybe undo the first step?
-  (-insert-resource [_ resource-data mime-type opts]
+  (-insert-resource [_ resource-data mime-type _]
     (let [location-uri (bucket/create! resource-map name resource-data mime-type)
           doc (res-meta/create-resource-meta-doc name location-uri mime-type)]
-      {:tx (wrap-db-q-or-tx (transact db-con (xt-res-meta/insert-resource-tx doc) opts))
-       :doc doc}))
+      (xt-res-meta/insert-resource-tx doc)))
 
-  (upsert-custom [_ custom opts]
-    {:tx (wrap-db-q-or-tx (transact db-con (custom/upsert-custom-tx custom) opts))})
+  (upsert-custom [_ custom _]
+    (custom/upsert-custom-tx custom))
 
-  (delete-custom [_ owner-id label category opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [(custom/delete-custom-tx-part label category owner-id)] opts))})
+  (delete-custom [_ owner-id label category _]
+    (custom/delete-custom-tx-part label category owner-id))
 
   (get-custom-by-label [_ owner-id label category opts]
     (wrap-db-q-or-tx (custom/get-custom-by-label label category owner-id opts)))
@@ -197,29 +211,32 @@
   (-get-resource-metadata-by-id [_ id opts]
     (wrap-db-q-or-tx (xt-res-meta/get-resource-by-id db-con id opts)))
 
-  (-delete-resource [_ id opts]
-    {:tx (wrap-db-q-or-tx (transact db-con [(xt-res-meta/delete-resource-meta-tx id)] opts))
-     :deleted-resource? (bucket/delete! resource-map id)})
+  (-delete-resource [_ id _]
+    (xt-res-meta/delete-resource-meta-tx id))
 
   (user-exists? [_ id-or-nickname opts]
     (wrap-db-q-or-tx (users/user-exists? db-con id-or-nickname opts)))
 
-  (get-by-nickname-or-id [_ id-or-nickname rows opts]
+  (get-by-nickname-or-id [d id-or-nickname rows opts]
     (case rows
       :actor
-      (db-cache/lookup-user-by-id-or-nickname
-       cache
-       id-or-nickname
-       (fn [nickname]
-         (wrap-db-q-or-tx (users/get-user-id-by-nickname db-con nickname opts)))
-       (fn [user-id]
-         (wrap-db-q-or-tx (users/get-user-actor-data db-con user-id opts))))
+      (db-cache/lookup-user-by-id-or-nickname cache d id-or-nickname)
 
       :display
       (wrap-db-q-or-tx (users/get-user-display-data db-con id-or-nickname opts))
 
       :full
       (wrap-db-q-or-tx (users/get-user-with-actor db-con id-or-nickname opts))))
+
+  CacheValueProvider
+  (get-user-id-from-nickname [_ nickname]
+    (wrap-db-q-or-tx (users/get-user-id-by-nickname db-con nickname {})))
+
+  (get-user-actor-from-id [_ user-id]
+    (wrap-db-q-or-tx (users/get-user-actor-data db-con user-id {})))
+
+  (get-role-from-id [_ role-id]
+    (wrap-db-q-or-tx (authr/get-logical-role-by-id db-con role-id {})))
 
   Closeable
   (close [_]

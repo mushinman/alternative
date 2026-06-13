@@ -16,24 +16,31 @@
   | `:async?` | bool | If true, queue the transaction instead of blocking |
 
   # Return value formats
-  Unless otherwise stated, insert or upsert functions return values are in
-  the following format:
-  | Key    | Type | Meaning                                    |
-  |:-------|:-----|:-------------------------------------------|
-  | `:doc` | Any  | The document transacted on                 |
-  | `:tx`  | Any  | The database implementation's return value |
-
-  Unless stated otherwise, delete transaction return values with the following
-  format:
-  | Key    | Type | Meaning                                    |
-  |:-------|:-----|:-------------------------------------------|
-  | `:ids` | Any  | The document ids transacted on             |
-  | `:tx`  | Any  | The database implementation's return value |
-  If no transaction was made (e.g. because the depot could not find any documents to delete)
-  then `:tx` and `:ids` may be absent.
+   Functions that begin with `insert`, `upsert`, `update`, or `delete` return composable transactions intended for inputting
+   into `-compose-txs` and then `transact`, which actually performs the final transaction.
+   ## Example Usage
+   ```clj
+   (compose-and-transact-txs
+       depot
+       ;; Insert a user from the database and then write the event to the audit log.
+       (insert-audit depot my-doc {})
+       (insert-local-user depot my-user {}))
+   ```
   "
+  ;; Transact.
+  (transact [d tx opts]
+    "Perform a transaction. Returns the native database return value for a transaction.")
+
+  (-compose-txs [d txs]
+    "Convert a sequence of transactions into a format that `transact` can understand.")
+
+
   ;; Misc.
   (db-time [d opts] "Returns the current time on the database.")
+
+  ;; Audit log.
+  (insert-audit [d audit-doc opts]
+    "Returns an insertion transaction `audit-doc`.")
 
   ;; Authentication.
   (delete-expired-session [d opts] "Clean up expired session state.")
@@ -44,6 +51,14 @@
     "Delete a session by its `selector` and `validator`.")
   (insert-session [d session opts]
     "Commit a session to long term `session` memory. Delete any sessions that conflict with `session`.")
+
+  ;; Authorization.
+  (get-role [d role-id-or-name opts]
+    "Get a role by its id or name.")
+  (upsert-role [d role opts]
+    "Insert `role`. The ID and name of the role must be unique.")
+  (delete-role [d role-id-or-name opts]
+    "Delete the role with `role-id-or-name`.")
 
   ;; User.
   (-check-nickname-and-password [d nickname password opts]
@@ -58,6 +73,8 @@
 - `:actor`: Return the user's actor data, permissions, and any non-authentication rows used for logic
 - `:full`: Return both the user's display and actor data")
   (user-exists? [d id-or-nickname opts] "Return true if the user with `id-or-nickname` exists, false if not.")
+  (can-user-see [d actor-id user-id opts]
+    "")
 
   ;; Relationships.
   (get-relationships-for-actor [d actor-id rel-types opts]
@@ -133,3 +150,12 @@
   "Search for a user with a string `search-term`."
   ([d search-term opts] (-search-user d search-term opts))
   ([d search-term] (search-user d search-term {})))
+
+(defn compose-txs
+  "Convert a sequence of transactions into a format that `transact` can understand."
+  [d & txs]
+  (-compose-txs d txs))
+
+(defn compose-and-transact-txs
+  [d opts & txs]
+  (transact d (-compose-txs d txs) opts))

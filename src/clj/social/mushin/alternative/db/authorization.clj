@@ -24,6 +24,12 @@
     [:role-id          :uuid]
     ts/created-at]})
 
+(def authorization-policy-schema
+  {:mushin.db/role-policy
+   [:map
+    [:xt/id         :uuid]
+    [:role-id       :uuid]]})
+
 (defn create-role
   [name attrs]
   {:xt/id (uuid/v4)

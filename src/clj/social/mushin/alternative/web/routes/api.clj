@@ -144,7 +144,7 @@
              (create-restful-controller
               (fn [{:keys [depot]}
                    {{:keys [user-id]} :session}]
-                (if-let [user-doc (app-users/get-user-by-id depot user-id)]
+                (if-let [user-doc (app-users/get-user-by-id depot user-id user-id {})]
                   (ok user-doc)
                   (not-found {:user-id user-id})))
               opts)}}]
@@ -164,10 +164,10 @@
                            )
                          opts)}
          :delete {:handler (create-restful-controller
-                         (fn [{:keys [depot]}
-                              {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
-                           )
-                         opts)}
+                            (fn [{:keys [depot]}
+                                 {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
+                              )
+                            opts)}
          :put {:handler (create-restful-controller
                          (fn [{:keys [depot]}
                               {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
@@ -244,8 +244,8 @@
      ["/get-user/:id" {:get {:handler
                              (create-restful-controller
                               (fn [{:keys [depot]}
-                                   {{{:keys [id]} :path} :parameters}]
-                                (if-let [user (app-users/get-user-by-id depot id)]
+                                   {{{:keys [id]} :path} :parameters {:keys [user-id]} :session}]
+                                (if-let [user (app-users/get-user-by-id depot user-id id {})]
                                   (ok user)
                                   (not-found {:user-id id})))
                               opts)}
@@ -284,24 +284,27 @@
                 [:category db-custom/label-string-schema]]]
            {:get {:handler (create-restful-controller
                             (fn [{:keys [depot]}
-                                 {{:keys [user-id]} :session {{:keys [id-or-nickname label category]} :path} :parameters}]
-                              (if-let [result (custom/get-custom depot id-or-nickname user-id label category)]
+                                 {{:keys [user-id]} :session {{:keys [id-or-nickname label category]} :path} :parameters
+                                  :keys [mushin/async?]}]
+                              (if-let [result (custom/get-custom depot {:async? async?} id-or-nickname user-id label category)]
                                 (ok result)
                                 (not-found {:label label :category category})))
                             opts)
                   :parameters {:path path-params-schema}}
             :put {:handler (create-restful-controller
                             (fn [{:keys [depot]}
-                                 {{:keys [user-id]} :session {:keys [body] {:keys [id-or-nickname label category]} :path} :parameters}]
-                              (custom/upsert-custom depot id-or-nickname user-id label category body)
+                                 {{:keys [user-id]} :session {:keys [body] {:keys [id-or-nickname label category]} :path} :parameters
+                                  :keys [mushin/async?]}]
+                              (custom/upsert-custom depot {:async? async?} id-or-nickname user-id label category body)
                               (ok {}))
                             opts)
                   :parameters {:body [:string]
                                :path path-params-schema}}
             :delete {:handler (create-restful-controller
                                (fn [{:keys [depot]}
-                                    {{:keys [user-id]} :session {{:keys [id-or-nickname label category]} :path} :parameters}]
-                                 (custom/delete-custom depot id-or-nickname user-id label category)
+                                    {{:keys [user-id]} :session {{:keys [id-or-nickname label category]} :path} :parameters
+                                     :keys [mushin/async?]}]
+                                 (custom/delete-custom depot {:async? async?} id-or-nickname user-id label category)
                                  (no-content))
                                opts)
                      :parameters {:path path-params-schema}}})]]]]]]])

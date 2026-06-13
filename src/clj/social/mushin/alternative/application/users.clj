@@ -9,16 +9,18 @@
             [social.mushin.alternative.errors :as err]))
 
 (defn get-user-by-id
-  "Get a user by its `user-id`, or `nil` if no such user exists."
-  ([depot user-id depot-opts]
-   (depot/get-by-nickname-or-id depot user-id :full depot-opts))
-  ([depot user-id]
-   (get-user-by-id depot user-id nil)))
+  "Get a user by its `user-id`, or `nil` if no such user exists.
+
+   If `actor-id-optional` is non-nil: check if the actor can see the user with `user-id`."
+  [depot actor-id-optional user-id depot-opts]
+  (when (and actor-id-optional (not ))
+    (throw (err/app-error "" :unauthorized {:actor-id actor-id-optional :user-id user-id})))
+  (depot/get-by-nickname-or-id depot user-id :full depot-opts))
 
 (defn deactivate-user-by-id!
   ([depot user-id deactivation-method depot-opts]
    (log/info {:event :deactivating-user :user-id user-id :reason deactivation-method})
-   (depot/deactivate-user depot user-id depot-opts))
+   (depot/compose-and-transact-txs depot depot-opts (depot/deactivate-user depot user-id depot-opts)))
   ([depot user-id deactivation-method]
    (deactivate-user-by-id! depot user-id deactivation-method nil)))
 
@@ -48,7 +50,7 @@
                                                      bucket)
           ;; TODO better handle default images.
           (uri "http://unknown"))]
-    (when (depot/user-exists? depot nickname {})
+    (when (depot/user-exists? depot nickname depot-opts)
       (log/info {:event :creating-user-failed :nickname nickname :reason :user-already-exists})
       (err/app-error "A user by that nickname already exists" :user-already-exists {}))
     (log/info {:event :creating-user :nickname nickname})
@@ -57,10 +59,8 @@
                                                                 bio display-name)
           auth-entry (authn/create-password-hashed-authn-entry password id :mushin.db/users)]
       {:user user-doc
-       :db-result (depot/insert-local-user depot user-doc auth-entry depot-opts)})))
+       :db-result (depot/compose-and-transact-txs
+                   depot
+                   depot-opts
+                   (depot/insert-local-user depot user-doc auth-entry depot-opts))})))
 
-(defn create-custom-data
-  ([depot owner-id label category value depot-opts]
-   (depot/upsert-custom depot (custom/create-custom owner-id label category value) depot-opts))
-  ([depot owner-id label category value]
-   (create-custom-data depot owner-id label category value {})))

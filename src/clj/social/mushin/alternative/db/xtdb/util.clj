@@ -167,9 +167,11 @@
                (fn [tx]
                  (cond
                    (nil? tx) tx
-                   (and (vector? tx) (vector? (first tx))) tx
-                   (vector? tx) [tx]
-                   :else nil)))
+
+                   (vector? tx)
+                   (if (vector? (first tx))
+                     tx
+                     [tx]))))
               (remove nil?)
               cat)
         txs))

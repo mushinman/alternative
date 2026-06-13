@@ -116,8 +116,8 @@
                         (with {:roles
                                (pull* (fn [user-id]
                                         (-> (unify
-                                             (from :mushin.db/authorization-user-role [{:user-id user-id} role-id])
-                                             (from :mushin.db/authorization-role [{:xt/id role-id} :name :attrs]))
+                                             (from :mushin.db/user-roles [{:user-id user-id} role-id])
+                                             (from :mushin.db/roles [{:xt/id role-id} :name :attrs]))
                                             (without :xt/id))))})
                         (limit 1)))) 
                  id-or-nickname]
@@ -126,18 +126,15 @@
 (defn get-user-with-actor
   "Query the database for a user with `id-or-nickname`. If none exists, return `nil`.
 
-  Also returns, merged with the user map, and each of the user's roles in the `:roles` key."
+   Also returns all the IDs of all the user's roles in `:role-ids`."
   [db-con id-or-nickname opts]
   (first
    (xt/q db-con [(xt/template
                   (fn [id-or-nickname]
                     (-> (from :mushin.db/users [* {:xt/id user-id} {~(if (string? id-or-nickname) :nickname :xt/id) id-or-nickname}])
-                        (with {:roles
+                        (with {:role-ids
                                (pull* (fn [user-id]
-                                        (-> (unify
-                                             (from :mushin.db/authorization-user-role [{:user-id user-id} role-id])
-                                             (from :mushin.db/authorization-role [{:xt/id role-id} :name :attrs]))
-                                            (without :xt/id))))})
+                                        (from :mushin.db/user-roles [{:user-id user-id} role-id])))})
                         (limit 1))))
                  id-or-nickname]
          opts)))
