@@ -1,19 +1,15 @@
 (ns social.mushin.alternative.codecs
   (:require [buddy.core.codecs]
-            [clojure.edn :as edn]
-            [java-time.api :as time])
+            [clojure.edn :as edn])
   (:import [java.util Base64]
            [java.util HexFormat]
            [java.nio.charset StandardCharsets]))
 
 (def ^:private charset-utf8 StandardCharsets/UTF_8)
 
-(def ^:private xt-readers
-  {'xt/zdt (fn [^String s] (time/zoned-date-time s))})
-
 (defn read-edn
   [s]
-  (edn/read-string {:readers (merge default-data-readers xt-readers)} s))
+  (edn/read-string {:readers default-data-readers} s))
 
 (defn bytes->b64
   "Encode a byte-array to a Base64 string (no padding)."

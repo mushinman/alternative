@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]
             [social.mushin.alternative.uri :refer [join]]
             [clojure.string :as cstr]
+            [social.mushin.alternative.uri :refer [uri]]
             [social.mushin.alternative.application.custom :as custom]
             [social.mushin.alternative.db.custom :as db-custom]
             [social.mushin.alternative.web.middleware.exception :as exception]
@@ -15,7 +16,7 @@
             [social.mushin.alternative.application.users :as app-users]
             [social.mushin.alternative.db.users :as users]
             [social.mushin.alternative.application.depot :as depot]
-            [ring.util.http-response :refer [bad-request! created ok unauthorized no-content
+            [ring.util.http-response :refer [bad-request! created accepted ok unauthorized no-content
                                              not-found service-unavailable unauthorized!]]
             [java-time.api :as time]
             [social.mushin.alternative.system :as sys]
@@ -181,17 +182,18 @@
               [:label db-custom/label-string-schema]
               [:category db-custom/label-string-schema]]]
          {:get {:handler (create-restful-controller
-                          (fn [{:keys [depot]}
+                          (fn [{:keys [db]}
                                {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
-                            (if-let [result (custom/get-custom depot user-id user-id label category)]
+                            (if-let [result (custom/get-custom depot {} user-id user-id label category)]
                               (ok result)
                               (not-found {:label label :category category})))
                           opts)
                 :parameters {:path path-params-schema}}
           :put {:handler (create-restful-controller
-                          (fn [{:keys [depot]}
-                               {{:keys [user-id]} :session {:keys [body] {:keys [label category]} :path} :parameters}]
-                            (custom/upsert-custom depot user-id user-id label category body)
+                          (fn [{:keys [db executor]}
+                               {{:keys [user-id]} :session {:keys [body] {:keys [label category]} :path} :parameters
+                                :keys [mushin/async?]}]
+                            (custom/upsert-custom depot {} user-id user-id label category body)
                             (ok {}))
                           opts)
                 :parameters {:body [:string]
@@ -199,7 +201,7 @@
           :delete {:handler (create-restful-controller
                              (fn [{:keys [depot]}
                                   {{:keys [user-id]} :session {{:keys [label category]} :path} :parameters}]
-                               (custom/delete-custom depot user-id user-id label category)
+                               (custom/delete-custom depot {} user-id user-id label category)
                                (no-content))
                              opts)
                    :parameters {:path path-params-schema}}})]]
@@ -254,16 +256,13 @@
      ["/create-user"
       {:post {:handler (create-restful-controller
                         (fn
-                          [{{{:keys [host]} :url} :endpoint :keys [depot bucket]}
+                          [{{{:keys [host]} :url} :endpoint :keys [db bucket]}
                            {{{:keys [nickname password avatar banner bio display-name]
                               :or {bio ""
-                                   display-name ""}} :body} :parameters
-                            :keys [mushin/async?]}] 
-                          (let [{{:keys [xt/id]} :user}
-                                (app-users/create-user! depot bucket {:async? async?} nickname password avatar banner bio display-name)]
-                            (if async?
-                              (created (join host (str "/@" nickname "/")) {:id id})
-                              (ok {:id id}))))
+                                   display-name ""}} :body} :parameters}] 
+                          (let [{{:keys [id]} :user}
+                                (app-users/create-user! db bucket {} nickname password avatar banner bio display-name)]
+                            (ok {:id id})))
                         opts)
               :parameters {:body [:map
                                   [:email {:optional true} types/email-schema]
@@ -292,11 +291,21 @@
                             opts)
                   :parameters {:path path-params-schema}}
             :put {:handler (create-restful-controller
-                            (fn [{:keys [depot]}
+                            (fn [{{{:keys [host]} :url} :endpoint :keys [depot]}
                                  {{:keys [user-id]} :session {:keys [body] {:keys [id-or-nickname label category]} :path} :parameters
                                   :keys [mushin/async?]}]
-                              (custom/upsert-custom depot {:async? async?} id-or-nickname user-id label category body)
-                              (ok {}))
+                              (let [[_ category label]
+                                    (custom/upsert-custom depot {:async? async?} id-or-nickname user-id label category body)
+                                    resource-url (uri {:host host :path (str  "/api/v1/admin/custom-data/"
+                                                                              id-or-nickname
+                                                                              "/l"
+                                                                              label
+                                                                              "/d/"
+                                                                              category)})]
+                                (if async?
+                                  (accepted {:message "Custom resource request accepted."
+                                             :monitor-url resource-url})
+                                  (ok {:resource-url resource-url}))))
                             opts)
                   :parameters {:body [:string]
                                :path path-params-schema}}

@@ -10,7 +10,7 @@
 (def audit-log-schema
   {:mushin.db/audit-log
    [:map
-    [:xt/id         :uuid]
+    [:id         :uuid]
     [:actor-id      :uuid]
     [:action        audit-action-schema]
     [:message {:optional true} :string]
@@ -19,7 +19,7 @@
 
 (defn create-audit-event
   ([actor-id action context message]
-   (cond-> {:xt/id (uuid/v4)
+   (cond-> {:id (uuid/v4)
             :actor-id actor-id
             :action action
             :created-at (time/zoned-date-time)}

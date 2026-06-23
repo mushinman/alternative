@@ -1,6 +1,5 @@
 (ns social.mushin.alternative.web.middleware.tx-func
-  (:require [clojure.string :as cstr]
-            [social.mushin.alternative.db.xtdb.util :as db]))
+  (:require [clojure.string :as cstr]))
 
 (defn wrap-add-tx-fn
   [handler]

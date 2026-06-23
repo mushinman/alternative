@@ -36,9 +36,8 @@
   "Schema for users.
   | Key                 | Type      | Meaning                                                           |
   |:--------------------|:----------|:------------------------------------------------------------------|
-  | `xt/id`             | UUID      | Row key                                                           |
+  | `doc-id`            | UUID      | Row key                                                           |
   | `email`             | string    | User email address                                                |
-  | `log-counter`       | int       | How many times this user has logged in counted at most once daily |
   | `nickname`          | string    | The user's nickname                                               |
   | `local`             | bool      | True if the user is local, false if foreign                       |
   | `bio`               | string    | The user's biography                                              |
@@ -50,11 +49,9 @@
    ::short-string [:string {:min 1 :max 256}]
    ::long-string  [:string {:min 1 :max 4096}]
 
-   :mushin.db/users
+   :mushin.db/user-documents
    [:map
-    [:xt/id                   :uuid]
     [:email {:optional true}  email-schema]
-    [:log-counter             :int]
     [:nickname                nickname-schema]
     [:display-name            :string]
     [:avatar {:optional true} uri-schema]
@@ -69,8 +66,7 @@
 (defn create-local-user
   ([nickname avatar-uri banner-uri bio display-name email]
    (let [now (time/zoned-date-time)]
-     (cond-> {:xt/id (uuid/v4)
-              :nickname nickname
+     (cond-> {:nickname nickname
               :display-name display-name
               :local? true
               :state {:type :ok}
@@ -88,7 +84,7 @@
 ;; TODO set avatar and banner URIs to some default.
 (defn create-user-tombstone
   [user-id]
-  {:xt/id user-id
+  {:id user-id
    :display-name ""
    :state {:type :tombstone}
    :bio ""

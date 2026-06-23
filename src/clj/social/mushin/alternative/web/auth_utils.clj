@@ -42,7 +42,7 @@
   "Validate a basic authentication header value.
 
   # Arguments
-   - `xtdb-node`: Databse.
+   - `depot`: Database depot.
    - `auth-arg`: Basic auth string (just the base64 pair).
 
   # Return value

@@ -13,28 +13,22 @@
 
 (def authn-schema
   {:mushin.db/authn
-   [:map
-    [:xt/id            :uuid]
-    [:for-id           [:or :uuid :string]]
-    [:for-type         :keyword]
-    ts/created-at
-    [:payload
-     [:multi {:dispatch :type}
-      [:password-hash
-       [:map
-        [:type authn-types]
-        [:hash :string]]]
-      [:remember-me
-       [:map
-        [:type authn-types]
-        [:valid-during     (mallt/-duration-schema)]
-        [:selector         :string]
-        [:hashed-validator :string]]]]]]})
+   [:multi {:dispatch :type}
+    [:password-hash
+     [:map
+      [:type authn-types]
+      [:hash :string]]]
+    [:remember-me
+     [:map
+      [:type authn-types]
+      [:valid-during     (mallt/-duration-schema)]
+      [:selector         :string]
+      [:hashed-validator :string]]]]})
 
 (defn create-password-hashed-authn-entry
   [password for-id for-type]
   (let [now (time/zoned-date-time)]
-    {:xt/id (uuid/v4)
+    {:id (uuid/v4)
      :for-id for-id
      :for-type for-type
      :payload {:hash (crypt/hash-password password)
@@ -50,9 +44,9 @@
   (let [selector (codecs/bytes->b64u (tokens/generate-token 16))
         validator (tokens/generate-token 32)
         now (time/zoned-date-time)]
-    {:doc {:xt/id (uuid/v4)
+    {:doc {:id (uuid/v4)
            :for-id user-id
-           :for-type :mushin.db/users
+           :for-type :mushin.db/user-documents
            :created-at now
            :payload {:type :remember-me
                      :selector selector

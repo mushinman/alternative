@@ -6,7 +6,7 @@
 
 (def ^:private common-rel-schema
   [:map
-   [:xt/id      :uuid]
+   [:id      :uuid]
    [:actor-id   :uuid]
    [:object-key :uuid]
    [:type       relationship-type-schema]
@@ -26,7 +26,7 @@
 
 (defn create-follow-relationship
   [actor-id followee-id]
-  {:xt/id (random-uuid)
+  {:id (random-uuid)
    :actor-id actor-id
    :created-at (time/zoned-date-time)
    :object-key followee-id
@@ -34,7 +34,7 @@
 
 (defn create-mute-relationship
   [actor-id muted-id]
-  {:xt/id (random-uuid)
+  {:id (random-uuid)
    :actor-id actor-id
    :type :mute
    :created-at (time/zoned-date-time)
@@ -43,7 +43,7 @@
 
 (defn create-block-relationship
   [actor-id blockee-id]
-  {:xt/id (random-uuid)
+  {:id (random-uuid)
    :actor-id actor-id
    :type :block
    :created-at (time/zoned-date-time)
@@ -51,7 +51,7 @@
 
 (defn create-react-relationship
   [actor-id reactee-id]
-  {:xt/id (random-uuid)
+  {:id (random-uuid)
    :actor-id actor-id
    :type :react
    :created-at (time/zoned-date-time)

@@ -8,7 +8,7 @@
 (def custom-schema
   {:mushin.db/custom
    [:map
-    [:xt/id    :uuid]
+    [:id    :uuid]
     [:owner-id :uuid]
     [:label    label-string-schema]
     [:category label-string-schema]
@@ -18,7 +18,7 @@
 (defn create-custom
   [owner-id label category value]
   (let [now (time/zoned-date-time)]
-    {:xt/id (uuid/v4)
+    {:id (uuid/v4)
      :actor-id owner-id
      :label label
      :category category

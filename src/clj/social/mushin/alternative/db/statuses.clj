@@ -14,7 +14,7 @@
   "Schema for statuses.
   | Key                | Type                              | Meaning                                                            |
   |:-------------------|:----------------------------------|:-------------------------------------------------------------------|
-  | `xt/id`            | UUID                              | Row Key                                                            |
+  | `id`            | UUID                              | Row Key                                                            |
   | `primary-encoding` | keyword                           | The default post content encdoing, e.g. `:html`, `:hiccup`         |
   | `creator`          | UUID/Foreign key to `users` table | Owner of the status                                                |
   | `reply-to`         | UUID/Key for `statuses` table     | Status that this status is a reply to                              |
@@ -29,7 +29,7 @@
   "
   {:mushin.db/statuses
    [:map
-    [:xt/id                     :uuid]
+    [:id                     :uuid]
     [:type                      status-types-schema]
     [:primary-encoding          status-encodings-schema]
     [:creator                   :uuid]
@@ -46,7 +46,7 @@
 (defn create-local-status
   ([creator-id content resources mentions character-count primary-encoding type reply-to]
    (let [now (t/zoned-date-time)]
-     (cond-> {:xt/id
+     (cond-> {:id
               ;; Allocate a UUID such that it shares the first 32 bits with the creator's id.
               (let [base (uuid/v4)]
                 (uuid/v4 (bit-or (bit-and

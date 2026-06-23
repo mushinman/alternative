@@ -89,17 +89,26 @@
  :social.mushin.alternative.cache/local-cache
  {}
 
- ;; resources/system.edn
- :social.mushin.alternative.depot/depot
- {:db-type :xtdb2
-  :cache #ig/ref :social.mushin.alternative.cache/local-cache
-  :bucket #ig/ref :social.mushin.alternative.resources/bucket
-  :cfg {:log
-        ;; persistent transaction-log under data/xtdb/log
-        [:local
-         {:path "data/xtdb/log"}]
+ :db/db
+ {:db-spec
+  {:dbtype "sqlite"
+   :dbname "data/test.db"
+   :maximumPoolSize 1}}
 
-        :storage
-        ;; persistent object store under data/xtdb/objects
-        [:local
-         {:path "data/xtdb/objects"}]}}}
+ :services/executor
+ {}
+
+ :alternative/depot
+ {:executor #ig/ref :services/executor
+  :db #ig/ref :db/db
+  :cache #ig/ref :social.mushin.alternative.cache/local-cache
+  :bucket #ig/ref :social.mushin.alternative.resources/bucket}}
+
+ ;; PostgreSQL:
+ ;; :db/datasource
+ ;; {:dbtype   "postgresql"
+ ;;  :host     "localhost"
+ ;;  :port     5432
+ ;;  :dbname   "alternative"
+ ;;  :user     "postgres"
+ ;;  :password #env DB_PASSWORD}

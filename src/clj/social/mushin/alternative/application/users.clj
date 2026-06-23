@@ -1,5 +1,6 @@
 (ns social.mushin.alternative.application.users
-  (:require [social.mushin.alternative.application.depot :as depot]
+  (:require [social.mushin.alternative.application.database :as db]
+            [next.jdbc :as jdbc]
             [social.mushin.alternative.resources.bucket :as bucket]
             [social.mushin.alternative.uri :refer [uri]]
             [clojure.tools.logging :as log]
@@ -13,9 +14,9 @@
 
    If `actor-id-optional` is non-nil: check if the actor can see the user with `user-id`."
   [depot actor-id-optional user-id depot-opts]
-  (when (and actor-id-optional (not ))
+  #_(when (and actor-id-optional (not ))
     (throw (err/app-error "" :unauthorized {:actor-id actor-id-optional :user-id user-id})))
-  (depot/get-by-nickname-or-id depot user-id :full depot-opts))
+  #_(depot/get-by-nickname-or-id depot user-id :full depot-opts))
 
 (defn deactivate-user-by-id!
   ([depot user-id deactivation-method depot-opts]
@@ -35,32 +36,33 @@
 (defn create-user!
   "Create a user. Returns a map of the following result:
   `{:user doc, :db-result database-return-value}`."
-  [depot bucket depot-opts nickname password avatar banner bio display-name]
-  (let [avatar
-        (if avatar
-          (bucket/create-resource-from-static-image! (:tmpfile avatar)
+  [{:keys [db bucket db-opts]} nickname password avatar banner bio display-name]
+  (db/transact
+   db
+   (fn [db]
+     (let [avatar
+           (if avatar
+             (bucket/create-resource-from-static-image! (:tmpfile avatar)
                                         ;(if (mime/is-supported-image-type? ))
-                                                     "image/png"
-                                                     bucket)
-          (uri "http://unknown"))
-        banner
-        (if banner
-          (bucket/create-resource-from-static-image! (:tmpfile banner)
-                                                     "image/png"
-                                                     bucket)
-          ;; TODO better handle default images.
-          (uri "http://unknown"))]
-    (when (depot/user-exists? depot nickname depot-opts)
-      (log/info {:event :creating-user-failed :nickname nickname :reason :user-already-exists})
-      (err/app-error "A user by that nickname already exists" :user-already-exists {}))
-    (log/info {:event :creating-user :nickname nickname})
-    (let [{:keys [xt/id] :as user-doc} (users/create-local-user nickname 
-                                                                avatar banner
-                                                                bio display-name)
-          auth-entry (authn/create-password-hashed-authn-entry password id :mushin.db/users)]
-      {:user user-doc
-       :db-result (depot/compose-and-transact-txs
-                   depot
-                   depot-opts
-                   (depot/insert-local-user depot user-doc auth-entry depot-opts))})))
+                                                        "image/png"
+                                                        bucket)
+             (uri "http://unknown"))
+           banner
+           (if banner
+             (bucket/create-resource-from-static-image! (:tmpfile banner)
+                                                        "image/png"
+                                                        bucket)
+             ;; TODO better handle default images.
+             (uri "http://unknown"))]
+       (when (db/user-exists? db nickname db-opts)
+         (log/info {:event :creating-user-failed :nickname nickname :reason :user-already-exists})
+         (err/app-error "A user by that nickname already exists" :user-already-exists {}))
+       (log/info {:event :creating-user :nickname nickname})
+       (let [actor-id (db/create-actor! db {})
+             user-doc (users/create-local-user nickname
+                                               avatar banner
+                                               bio display-name)]
+         (db/create-password-for! db password actor-id {})
+         (db/create-user! db actor-id user-doc {})
+         {:user user-doc})))))
 
