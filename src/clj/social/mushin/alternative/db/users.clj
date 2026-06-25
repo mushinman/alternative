@@ -33,50 +33,35 @@
 
 
 (def user-schema
-  "Schema for users.
-  | Key                 | Type      | Meaning                                                           |
-  |:--------------------|:----------|:------------------------------------------------------------------|
-  | `doc-id`            | UUID      | Row key                                                           |
-  | `email`             | string    | User email address                                                |
-  | `nickname`          | string    | The user's nickname                                               |
-  | `local`             | bool      | True if the user is local, false if foreign                       |
-  | `bio`               | string    | The user's biography                                              |
-  | `joined-at`         | Timestamp | The time the user created their account                           |
-  | `last-logged-in-at` | Timestamp | The last the user logged in                                       |
-  | `privacy-level`     | keyword   | Level of privacy. Can be `:open`, `:open-instance`, `:locked`     |
-  "
+  "Schema for users."
   {::tiny-string  [:string {:min 1 :max 32}]
    ::short-string [:string {:min 1 :max 256}]
    ::long-string  [:string {:min 1 :max 4096}]
 
-   :mushin.db/user-documents
+   :social.mushin.alternative/user-documents
    [:map
-    [:email {:optional true}  email-schema]
+    [:actor-id                :uuid]
     [:nickname                nickname-schema]
     [:display-name            :string]
     [:avatar {:optional true} uri-schema]
     [:banner {:optional true} uri-schema]
     [:bio                     :string]
-    [:state                   user-states-schema]
     [:privacy-level           [:enum :open :open-instance :locked]]
     [:local?                  :boolean]
-    [:joined-at               (mallt/-zoned-date-time-schema)]
-    [:last-logged-in-at       (mallt/-zoned-date-time-schema)]]})
+    [:joined-at               (mallt/-zoned-date-time-schema)]]})
 
 (defn create-local-user
-  ([nickname avatar-uri banner-uri bio display-name email]
+  ([actor-id nickname avatar-uri banner-uri bio display-name email]
    (let [now (time/zoned-date-time)]
      (cond-> {:nickname nickname
               :display-name display-name
               :local? true
               :state {:type :ok}
-              :log-counter 0
               :avatar (uri avatar-uri)
               :banner (uri banner-uri)
               :bio bio
               :joined-at now
-              :privacy-level :open
-              :last-logged-in-at now}
+              :privacy-level :open}
        email (assoc :email email))))
   ([nickname avatar-uri banner-uri bio display-name]
    (create-local-user nickname avatar-uri banner-uri bio display-name nil)))

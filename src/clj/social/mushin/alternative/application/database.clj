@@ -1,67 +1,51 @@
 (ns social.mushin.alternative.application.database)
 
-(defprotocol AlternativeDatabase
-  (db-time [d opts])
+(defprotocol Database
+  []
+  ;; Basic CRUD operations on primitives.
+  (create-actor! [db opts]
+    "Create an actor, return its id.")
+  (patch-actor! [db actor-doc opts]
+    "Patch an actor.")
+  (get-actor [db actor-id opts]
+    "Return the actor with `actor-id`, or `nil` if none exists")
 
-  (transact [db callable]
-    "Execute `callable` with a new `AlternativeDatabase` instance which performs all database
-operations in a single transaction.")
+  (get-document [db doc-id opts]
+    "Return a document by its id, or `nil` if none exists.")
+  (select-document [db select-doc opts]
+    "Return a collection of documents that match `select-doc`, searching for matching fields.")
+  (alloc-doc! [db owner-id opts]
+    "Create an empty document for the actor with `owner-id`, returning its `id`.")
+  (create-document! [db owner-id doc-id doc opts]
+    "Upsert `doc` by with `doc-id` for `owner-id`, returning the full document with metadata.")
+  (delete-document! [db doc-id opts]
+    "Hard delete `doc-id`, returning `true` if a document was deleted, else `false`.")
+  (invalidate-document! [db doc-id opts]
+    "Invalidate `doc-id`, returning `true` if a document was invalidated, else `false`.")
 
-  (user-exists? [db nickname opts]
-    "Return `true` if a user with `nickname` exists, else `false`.")
+  ;; More application specific features.
+  (upsert-user! [db user-doc opts]
+    "Upsert `user-doc`. If an update: `user-doc` must either not have a `:nickname` field,
+or it must be the exact same `:nickname` as is already present for `actor-id`'s user document. If an insert:
+the `:nickname` field must be present and unique.")
+  (get-user-for-actor [db actor-id opts]
+    "Return the user document for `actor-id`, including metadata; or `nil` if none exists or if no such
+actor exists.")
+  (get-actor-by-nickname [db nickname opts]
+    "Return the actor document for `nickname`, or `nil` if none exists.")
 
-  (alloc-doc! [db creator-id opts]
-    "Allocate a document for `actor-id` on the database and return its id.")
+  (insert-status! [db status-doc opts]
+    "Insert `status-doc`.")
+  (update-status! [db doc-id status-doc opts]
+    "Update `doc-id` with a new `status-doc`.")
 
-  (invalidate-doc! [db doc-id invalidator-id opts]
-    "Invalidate `doc-id`.")
+  (insert-relationship! [db rel-doc opts]
+    "Insert a relationship document. The document must be unique according to its relationship type and
+the users involved.")
+  (get-relationships-for [db nickname relationship-types opts]
+    "Return a document collection for relationships involving the user with `nickname` in `relationship-types`.")
+  (get-relationships-between [db nickname1 nickname2 opts]
+    "Return a collection of documents for relationships involving `nickname1` and `nickname2`.")
 
-  (delete-doc! [db doc-id opts]
-    "Delete `doc-id`.")
-
-  (assign-doc! [db assignor-id assignee-id doc-id opts]
-    "Transfer ownership of `doc-id` from its current owner to `asignee-id`.")
-
-  (create-actor! [d opts]
-    "Insert an actor document and return its id.")
-
-  (create-role! [db role-doc opts]
-    "Upsert a role-doc.")
-
-  (get-roles-for [db actor-id opts]
-    "Get all roles documents for `actor-id`.")
-
-  (-create-user! [d creator-id doc-id user-doc upsert? opts]
-    "Create a new user document.  If `upsert?` is true: the new `user-doc` is merged
-with the latest version of document with `doc-id`, if it exists. If `uspert?` is false: the
-operation is treated as an insert and any existing document is overwritten.
-
-Throw if the operation violates the uniqueness of the `nickname` field, if the `nickname` field changes,
-or the operation would delete the `nickname` field.")
-
-
-  (-create-password-for! [db doc-id raw-password for-actor-id opts]
-    "Insert a password hash authenitcation method document for `for-actor-id`, replacing any existing
-password hash documents for `for-actor-id`.")
-
-  (create-custom-doc! [db creator-id category label json-value opts]
-    "Insert a `json-value` into a document, overwriting any document with the same `category` and `label`.")
-
-  (get-custom-doc [db category label opts]
-    "Get a custom document by its `category` and `label`.")
-
-  (insert-audit! [d audit-doc opts]))
-
-(defn create-user!
-  ([db actor-id user-doc opts]
-   (-create-user! db actor-id (alloc-doc! db actor-id opts) user-doc true opts))
-  ([db actor-id doc-id user-doc opts]
-   (-create-user! db actor-id doc-id user-doc true opts))
-  ([db actor-id doc-id user-doc upsert? opts]
-   (-create-user! db actor-id doc-id user-doc upsert? opts)))
-
-(defn create-password-for!
-  ([db doc-id raw-password for-actor-id opts]
-   (-create-password-for! db doc-id raw-password for-actor-id opts))
-  ([db raw-password for-actor-id opts]
-   (-create-password-for! db (alloc-doc! db for-actor-id opts) raw-password for-actor-id opts)))
+  (get-roles [db opts]
+    "Return a collection of every role document."))
