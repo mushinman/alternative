@@ -1,19 +1,11 @@
 (ns social.mushin.alternative.application.database)
 
-(defprotocol Database
-  []
-  ;; Basic CRUD operations on primitives.
-  (create-actor! [db opts]
-    "Create an actor, return its id.")
-  (patch-actor! [db actor-doc opts]
-    "Patch an actor.")
-  (get-actor [db actor-id opts]
-    "Return the actor with `actor-id`, or `nil` if none exists")
 
-  (get-document [db doc-id opts]
-    "Return a document by its id, or `nil` if none exists.")
-  (select-document [db select-doc opts]
-    "Return a collection of documents that match `select-doc`, searching for matching fields.")
+(defprotocol AlternativeDatabase
+  ;; Basic CRUD operations on primitives.
+
+  (get-documents [db doc-ids opts]
+    "Return a collection of documents with an id in `doc-ids`.")
   (alloc-doc! [db owner-id opts]
     "Create an empty document for the actor with `owner-id`, returning its `id`.")
   (create-document! [db owner-id doc-id doc opts]
