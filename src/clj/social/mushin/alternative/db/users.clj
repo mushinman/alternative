@@ -2,53 +2,49 @@
   (:require [malli.experimental.time :as mallt]
             [java-time.api :as time]
             [clj-uuid :as uuid]
+            [social.mushin.alternative.db.schema :as schema]
             [social.mushin.alternative.utils :refer [grapheme-count]]
             [social.mushin.alternative.validators :refer [is-email-user-valid?]]
+            [social.mushin.alternative.errors :as err]
             [social.mushin.alternative.db.types :refer [uri-schema email-schema]]
             [social.mushin.alternative.uri :refer [uri]]))
 
-(defn- is-valid-nickname?
+(defn is-valid-nickname?
   "Return true if `v` is a valid nickname, otherwise false."
   [v]
   (and (string? v)
        (<= 1 (grapheme-count v) 32)
        (is-email-user-valid? v)))
 
-(def nickname-schema
-  "Malli schmea for nicknames."
-  [:fn {:error/message "Must be valid email username, not empty, and under 32 characters"} is-valid-nickname?])
+(defmethod schema/doc-schema-check :social.mushin.alternative/users
+  [[_ op docs]]
+  (doseq [doc docs]
+    (let [{:keys [meta/id meta/creator meta/owner nickname local? joined-at]} doc]
+      (and
+       (or (uuid? id)
+           (throw (err/db-error "id is not a UUID" :schema-check {:id id})))
+       (or (and (= :patch op) (nil? creator))
+           (uuid? creator)
+           (throw (err/db-error "creator is not a UUID" :schema-check {:creator creator
+                                                                       :id id})))
+       (or (and (= :patch op) (nil? owner))
+           (uuid? owner)
+           (throw (err/db-error "owner is not a UUID" :schema-check {:owner owner
+                                                                     :id id})))
+       (or (and (= :patch op) (nil? nickname))
+           (is-valid-nickname? nickname)
+           (throw (err/db-error "nickname is not a valid" :schema-check {:nickname nickname
+                                                                         :id id})))
+       (or (and (= :patch op) (nil? local?))
+           (boolean? local?)
+           (throw (err/db-error "local? is not a boolean" :schema-check {:local? local?
+                                                                         :id id})))
+       (or (and (= :patch op) (nil? joined-at))
+           (schema/is-zdt? joined-at)
+           (throw (err/db-error "joined-at is not a ZonedDateTime" :schema-check {:joined-at joined-at
+                                                                                  :id id}))))))
+  docs)
 
-(def ^:private user-states-schema
-  "Schema for user states.
-  | Key          | State                     | Meaning                                |
-  |:-------------|:--------------------------|:---------------------------------------|
-  | `:ok`        | None                      | Account activated and in good standing |
-  | `:timeout`   | Time the timeout expires. | Account is in timeout                  |
-  | `:tombstone` | None                      | Account is dead/deactivated.           |
-  "
-  [:multi {:dispatch :type}
-   [:ok [:map [:type :keyword]]]
-   [:timeout [:map [:type :keyword] [:timeout (mallt/-zoned-date-time-schema)]]]  ; TODO implement timeout
-   [:tombstone [:map [:type :keyword]]]])
-
-
-(def user-schema
-  "Schema for users."
-  {::tiny-string  [:string {:min 1 :max 32}]
-   ::short-string [:string {:min 1 :max 256}]
-   ::long-string  [:string {:min 1 :max 4096}]
-
-   :social.mushin.alternative/user-documents
-   [:map
-    [:actor-id                :uuid]
-    [:nickname                nickname-schema]
-    [:display-name            :string]
-    [:avatar {:optional true} uri-schema]
-    [:banner {:optional true} uri-schema]
-    [:bio                     :string]
-    [:privacy-level           [:enum :open :open-instance :locked]]
-    [:local?                  :boolean]
-    [:joined-at               (mallt/-zoned-date-time-schema)]]})
 
 (defn create-local-user
   ([actor-id nickname avatar-uri banner-uri bio display-name email]

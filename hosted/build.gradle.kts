@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     compileOnly("org.clojure:clojure:1.12.0")
+    implementation("org.xerial:sqlite-jdbc:3.47.2.0")
     testImplementation(kotlin("test"))
 }
 

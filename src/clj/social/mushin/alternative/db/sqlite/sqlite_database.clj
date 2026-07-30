@@ -1,20 +1,27 @@
 (ns social.mushin.alternative.db.sqlite.sqlite-database
   (:require [social.mushin.alternative.application.database :refer [AlternativeDatabase] :as db]
             [social.mushin.alternative.json-storage :as storage]
+            [jsonista.core :as json]
             [social.mushin.alternative.db.users :as users]
             [social.mushin.alternative.db.util :refer [blob->uuid]]
+            [social.mushin.alternative.utils :refer [postpathwalk]]
+            [social.mushin.alternative.db.schema :as schema]
+            [clojure.walk :as walk]
+            [clojure.set :as set]
             [social.mushin.alternative.errors :refer [db-error]]
             [social.mushin.alternative.crypt.password :as hash]
             [clj-uuid :as uuid]
             [honey.sql :as sql]
+            [social.mushin.alternative.db.sqlite.sqlite :as sqlite]
+            [clojure.string :as str]
             [java-time.api :as time]
             [next.jdbc :as jdbc]
             [next.jdbc.sql :as jdbc-sql])
-  (:import [java.time Instant LocalDateTime]
+  (:import [java.time Instant LocalDateTime ZonedDateTime OffsetDateTime LocalDate]
            [java.util.regex Pattern]
            [java.sql Date Timestamp]
            [clojure.lang IReduceInit]
-           [java.lang Exception]
+           [java.lang Exception StringBuilder]
            [java.sql SQLException SQLTransientException SQLRecoverableException SQLInvalidAuthorizationSpecException
             SQLIntegrityConstraintViolationException]
            [org.sqlite SQLiteException SQLiteErrorCode]
@@ -81,24 +88,128 @@
                    (wrap-exec
                     (reduce f init (eduction (map row-fn) (jdbc/plan ds sql db-opts))))))))
 
-(defn- build-doc-query
-  [filter]
-  (sql/format
-   {:union-all [{:select [:doc-id :version :system-from nil :doc :creator :owner :doc-type]
-                 :from [:documents]}
-                {:select [:doc-id :version :system-from :system-to :doc :creator :owner :doc-type]
-                 :from [:documents-history]}]}
-   {:select []
-    :from [[:documents :doc]]
-    :join [[:document-identities :id] [:= :doc.doc-id :id.doc-id]]
-    :where filter}))
+(defn- compile-doc-query
+  [query]
+  (cond
+      ))
 
-(defrecord SQLiteDatabase [ds]
+(defn- doc-path->str
+  [path]
+  (let [path-builder (StringBuilder. (* 3 (count path)))]
+    (.append path-builder "$")
+    (doseq [path-part path]
+      (if (int? path-part)
+        (-> path-builder
+            (.append \[)
+            (.append (long path-part))
+            (.append \]))
+        (-> path-builder
+            (.append \.)
+            (.append (str path-part)))))
+    (str path-builder)))
+
+(defn- handle-variable
+  [op doc-types path v stringify-path]
+  (let [{:keys [normalize path-ext]} (doc-types (type v))]
+    [op [:->> :doc (stringify-path (if path-ext (conj path path-ext) path))]
+     (if normalize (normalize v) v)]))
+
+
+(defn compile-query
+  [column doc-types stringify-path]
+  (postpathwalk
+   (fn [path item]
+     (cond
+       (map? item)
+       (mapv (fn [[k v]]
+               (if (and (vector? v) (keyword? (first v)))
+                 v
+                 (handle-variable := doc-types (conj path k) v stringify-path)))
+             item)
+
+       (map-entry? item) item
+
+       ;; Convert to a SQL expression and inject the path.
+       (vector? item)
+       (let [[op arg] item]
+         (cond
+           (#{:and :or} op) item
+
+           (keyword? op) (handle-variable op doc-types path arg stringify-path)
+           :else item))
+
+       :else
+       item))
+   []
+   column))
+
+#_(defn- compile-doc-match
+  [doc]
+  (into [:and]
+        (compile-query doc {})))
+
+(def ^:private insert-doc-sql
+  "DML statement for inserting documents."
+  (first (sql/format {:replace-into :documents
+                      :columns [:id :doc-type :creator :owner :doc]
+                      :values [[nil nil nil nil nil]]})))
+
+(def ^:private delete-doc-sql
+  "DML statement for inserting documents."
+  (first (sql/format {:delete-from :documents
+                      :where [:and [:= :id "?"] [:= :doc-type "?"]]})))
+
+(defn- replace-many!
+  [c docs]
+  (jdbc/execute-batch! c insert-doc-sql docs {}))
+
+(defn- delete-many!
+  [c docs]
+  (jdbc/execute-batch! c delete-doc-sql docs {}))
+
+(defn- compile-doc-matches
+  [docs]
+  (let [meta-columns {:meta/id "id"
+                      :meta/version "version"
+                      :meta/system-from "system_from"
+                      :meta/creator "creator"
+                      :meta/doc-type "doc_type"}]
+    [:or 
+     (for [doc docs]
+       (into [:and]
+             (into (compile-query (-> (select-keys doc (keys meta-columns))
+                                      (set/rename-keys meta-columns)) {} identity)
+                   (compile-query (apply dissoc doc (keys meta-columns)) {} doc-path->str))))]))
+
+
+(defn- build-doc-with-history-query
+  ([doc-query-parts history-query-parts]
+   (sql/format
+    {:union-all [(merge
+                  {:select [:doc-id :version :system-from nil :doc :creator :owner :doc-type]
+                   :from [:documents]}
+                  doc-query-parts)
+                 (merge
+                  {:select [:doc-id :version :system-from :system-to :doc :creator :owner :doc-type]
+                   :from [:documents-history]}
+                  history-query-parts)]}))
+  ([query-parts]
+   (build-doc-with-history-query query-parts query-parts)))
+
+(defn- build-doc-query
+  [doc-query-parts]
+  (sql/format
+   (merge
+    {:select [:doc-id :version :system-from :doc :creator :owner :doc-type]
+     :from [:documents]}
+    doc-query-parts)))
+
+(defrecord SQLiteDatabase [writer-ds reader-ds]
   AlternativeDatabase
-  (get-documents [_ doc-ids {:keys [created-before created-after  include-invalid?
-                                    reducable? doc-deserializer db-opts]}]
+  (query-documents [_ docs {:keys [created-before created-after  include-invalid?
+                                   reducable? doc-deserializer db-opts]}]
     (wrap-exec
-     (q ds
+     (q reader-ds
         db-opts
         (build-doc-query
          (cond-> [:and
@@ -125,44 +236,25 @@
                   doc)})
         (if reducable? :reducable :collection))))
 
-  (alloc-doc! [_ owner-id {:keys [db-opts]}]
-    (wrap-exec
-     (jdbc-sql/insert! ds :document-identities {:created-at-tz (time/zone-id)
-                                                :owner owner-id
-                                                :creator owner-id
-                                                :version (uuid/v7)
-                                                :doc-status "valid"}
-                       db-opts)))
-  (create-document! [db owner-id doc-id doc opts]
-    "Upsert `doc` by with `doc-id` for `owner-id`, returning the full document with metadata.")
-  (delete-document! [db doc-id opts]
-    "Hard delete `doc-id`, returning `true` if a document was deleted, else `false`.")
-  (invalidate-document! [db doc-id opts]
-    "Invalidate `doc-id`, returning `true` if a document was invalidated, else `false`.")
+  (exec-tx [db tx-parts opts]
+    (db/transact db (fn [ds]
+                      (doseq [tx-part tx-parts]
+                        (let [[op table & docs] tx-part]
+                          (case op
+                            :put (replace-many!
+                                  ds
+                                  (mapv (fn [{:keys [meta/id meta/creator meta/owner] :as doc}]
+                                          [id table creator owner
+                                           (json/write-value-as-string
+                                            (dissoc doc :meta/id :meta/creator :meta/owner)
+                                            storage/storage-mapper)])
+                                        (schema/doc-schema-check :put [table docs])))
+                            :patch (jdbc-sql/insert-multi! ds :documents (schema/doc-schema-check :patch [table docs]))
+                            :delete (delete-many! ds (mapv (fn [id] [id table]) docs))))))
+              opts))
+  (transact [_ fn opts]
+    ))
 
-  ;; More application specific features.
-  (upsert-user! [db user-doc opts]
-    "Upsert `user-doc`. If an update: `user-doc` must either not have a `:nickname` field,
-or it must be the exact same `:nickname` as is already present for `actor-id`'s user document. If an insert:
-the `:nickname` field must be present and unique.")
-  (get-user-for-actor [db actor-id opts]
-    "Return the user document for `actor-id`, including metadata; or `nil` if none exists or if no such
-actor exists.")
-  (get-actor-by-nickname [db nickname opts]
-    "Return the actor document for `nickname`, or `nil` if none exists.")
-
-  (insert-status! [db status-doc opts]
-    "Insert `status-doc`.")
-  (update-status! [db doc-id status-doc opts]
-    "Update `doc-id` with a new `status-doc`.")
-
-  (insert-relationship! [db rel-doc opts]
-    "Insert a relationship document. The document must be unique according to its relationship type and
-the users involved.")
-  (get-relationships-for [db nickname relationship-types opts]
-    "Return a document collection for relationships involving the user with `nickname` in `relationship-types`.")
-  (get-relationships-between [db nickname1 nickname2 opts]
-    "Return a collection of documents for relationships involving `nickname1` and `nickname2`.")
-
-  (get-roles [db opts]
-    "Return a collection of every role document."))
+(defn- create-sql-database
+  [writer-ds reader-ds]
+  (SQLiteDatabase. writer-ds reader-ds))

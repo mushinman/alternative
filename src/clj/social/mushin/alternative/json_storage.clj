@@ -10,15 +10,7 @@
             MonthDay Year YearMonth Duration Period]
            [java.util UUID]))
 
-(def ztd-serializer
-  (proxy [JsonSerializer] []
-    (serialize [^ZonedDateTime zdt ^JsonGenerator gen ^SerializerProvider _]
-      (.writeStartObject gen)
-      (.writeStringField gen "__type" "zoned-date-time")
-      (.writeStringField gen "value" (str (time/instant zdt)))
-      (.writeStringField gen "zone-id" (str (time/zone-id zdt)))
-      (.writeEndObject gen))))
-
+;; TODO only store as UTC if the underlying storage is SQLite.
 (def default-write-maps
   {ZonedDateTime (proxy [JsonSerializer] []
                    (serialize [^ZonedDateTime zdt ^JsonGenerator gen ^SerializerProvider _]

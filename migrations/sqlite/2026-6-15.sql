@@ -1,5 +1,3 @@
-PRAGMA foreign_keys = ON;
-
 create table migrations (
        id          int primary key,
        label       text not null,
@@ -11,17 +9,18 @@ insert into migrations (label, doc) values
 ('social.mushin.alternative', '{}');
 
 create table documents (
-       doc_id            blob primary key not null,
-       version           blob unique not null,
+       id                text default (uuidv7_text()),
+       version           blob unique not null default (uuidv7_blob()),
        system_from       text not null default (strftime('%Y-%m-%d %H:%M:%f', 'now')),
        doc               blob not null check (json_valid(doc)),
        creator           blob not null,
        owner             blob not null,
-       doc_type          text not null
+       doc_type          text not null,
+       primary key       (id, doc_type)
 );
 
 create table documents_history (
-       doc_id            blob not null,
+       id                text not null,
        version           blob unique not null,
        system_from       text not null,
        system_to         text not null default (strftime('%Y-%m-%d %H:%M:%f', 'now')),
@@ -29,10 +28,14 @@ create table documents_history (
        creator           blob not null,
        owner             blob not null,
        doc_type          text not null,
-       primary key       (doc_id, version)
+       primary key       (id, doc_type, version)
 );
 
-create index idx_docs_history on documents_history (doc_id, system_to desc);
+create index idx_docs_history on documents_history (id, system_to desc);
+
+create index idx_users
+       on documents (json_extract(doc, '$.nickname'))
+       where doc_type = ':social.mushin.alternative/user';
 
 create trigger check_version_validity_on_documents_insert
        before insert on documents
@@ -54,14 +57,16 @@ create trigger apply_unitemporal_updates_to_documents
        after update on documents
        when NEW.version != OLD.version
 begin
-    insert into documents_history (doc_id, version, system_from, doc, creator, owner, doc_type)
-    values (OLD.doc_id, OLD.version, OLD.system_from, OLD.doc, OLD.creator, OLD.owner, OLD.doc_type);
-    update documents set system_from = strftime('%Y-%m-%d %H:%M:%f', 'now') where doc_id = OLD.doc_id;
+    insert into documents_history (id, version, system_from, doc, creator, owner, doc_type)
+    values (OLD.id, OLD.version, OLD.system_from, OLD.doc, OLD.creator, OLD.owner, OLD.doc_type);
+    update documents set system_from = strftime('%Y-%m-%d %H:%M:%f', 'now'),
+                         version = uuidv7_blob()
+                         where id = OLD.id;
 end;
 
 create trigger apply_unitemporal_deletes_to_documents
        after delete on documents
 begin
-    insert into documents_history (doc_id, version, system_from, doc, creator, owner, doc_type)
-    values (OLD.doc_id, OLD.version, OLD.system_from, OLD.doc, OLD.creator, OLD.owner, OLD.doc_type);
+    insert into documents_history (id, version, system_from, doc, creator, owner, doc_type)
+    values (OLD.id, OLD.version, OLD.system_from, OLD.doc, OLD.creator, OLD.owner, OLD.doc_type);
 end;

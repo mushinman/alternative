@@ -1,10 +1,12 @@
 (ns social.mushin.alternative.utils
   (:require [integrant.core :as ig]
             [clojure.java.io :as io]
+            [clojure.walk :as walk]
             [clojure.tools.logging :as log])
     
   (:import [java.net URI]
            [java.text BreakIterator]
+           [clojure.lang IRecord MapEntry]
            [java.nio.file Files LinkOption Paths]))
 
 (defn to-java-uri
@@ -39,6 +41,36 @@
     (if (not= (.next it) BreakIterator/DONE)
       (recur it (inc n))
       n)))
+
+(defn pathwalk
+  [inner outer path form]
+  (cond
+    (list? form)
+    (outer path (with-meta (apply list (map-indexed (fn [idx i] (inner (conj path idx) i)) form)) (meta form)))
+
+    (seq? form)
+    (outer path (into [] (map-indexed (fn [idx i] (inner (conj path idx) i)) form)))
+
+    (instance? IRecord form)
+    (outer path (reduce
+                 (fn [r x]
+                   (let [v (inner path x)]
+                     (conj r v)))
+                 []
+                 form))
+    
+
+    (map? form)
+    (outer path (into {} (map (fn [[k v]] (outer path (MapEntry/create k (inner (conj path k) v)))) form)))
+
+    (coll? form)
+    (outer path (into (empty form) (map-indexed (fn [idx i] (inner (conj path idx) i)) form)))
+
+    :else (outer path form)))
+
+(defn postpathwalk
+  [f path form]
+  (pathwalk (partial postpathwalk f) f path form))
 
 (defn contains-key?
   [coll key]

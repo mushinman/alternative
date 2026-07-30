@@ -1,43 +1,12 @@
 (ns social.mushin.alternative.application.database)
 
-
 (defprotocol AlternativeDatabase
   ;; Basic CRUD operations on primitives.
 
-  (get-documents [db doc-ids opts]
-    "Return a collection of documents with an id in `doc-ids`.")
-  (alloc-doc! [db owner-id opts]
-    "Create an empty document for the actor with `owner-id`, returning its `id`.")
-  (create-document! [db owner-id doc-id doc opts]
-    "Upsert `doc` by with `doc-id` for `owner-id`, returning the full document with metadata.")
-  (delete-document! [db doc-id opts]
-    "Hard delete `doc-id`, returning `true` if a document was deleted, else `false`.")
-  (invalidate-document! [db doc-id opts]
-    "Invalidate `doc-id`, returning `true` if a document was invalidated, else `false`.")
-
-  ;; More application specific features.
-  (upsert-user! [db user-doc opts]
-    "Upsert `user-doc`. If an update: `user-doc` must either not have a `:nickname` field,
-or it must be the exact same `:nickname` as is already present for `actor-id`'s user document. If an insert:
-the `:nickname` field must be present and unique.")
-  (get-user-for-actor [db actor-id opts]
-    "Return the user document for `actor-id`, including metadata; or `nil` if none exists or if no such
-actor exists.")
-  (get-actor-by-nickname [db nickname opts]
-    "Return the actor document for `nickname`, or `nil` if none exists.")
-
-  (insert-status! [db status-doc opts]
-    "Insert `status-doc`.")
-  (update-status! [db doc-id status-doc opts]
-    "Update `doc-id` with a new `status-doc`.")
-
-  (insert-relationship! [db rel-doc opts]
-    "Insert a relationship document. The document must be unique according to its relationship type and
-the users involved.")
-  (get-relationships-for [db nickname relationship-types opts]
-    "Return a document collection for relationships involving the user with `nickname` in `relationship-types`.")
-  (get-relationships-between [db nickname1 nickname2 opts]
-    "Return a collection of documents for relationships involving `nickname1` and `nickname2`.")
-
-  (get-roles [db opts]
-    "Return a collection of every role document."))
+  (query-documents [db docs opts]
+    "Query for documents according to `docs`.")
+  (exec-tx [db tx-parts opts]
+    "Execute statements as a transactions.")
+  (transact [db fn opts]
+    "Execute `fn` with a `AlternativeDatabase` that executes all queries and statements
+in a single transaction."))
